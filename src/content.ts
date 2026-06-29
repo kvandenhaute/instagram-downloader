@@ -31,38 +31,39 @@ function injectStyle(): void {
 	document.head.appendChild(el);
 }
 
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+interface VideoUrlResponse {
+	url?: string
+	error?: string
+}
+
+function shortcodeToPostId(shortcode: string): string {
+	const code = shortcode.length > 28 ? shortcode.slice(0, shortcode.length - 28) : shortcode;
+	let id = BigInt(0);
+	for (const ch of code) {
+		id = id * BigInt(64) + BigInt(CHARS.indexOf(ch));
+	}
+	return id.toString();
+}
+
+function getShortcode(source: HTMLElement): string | null {
+	const article = source.closest('article');
+	if (!article) return null;
+	for (const a of article.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+		const match = a.href.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
+		if (match) return match[2] ?? null;
+	}
+	return null;
+}
+
+function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
+	return chrome.runtime.sendMessage(message);
+}
+
 ///////
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-// blob URL → beste chunk URL (hoogste bitrate)
-const blobToChunkUrl = new Map<string, { url: string, bitrate: number }>();
-
-function parseEfgBitrate(url: string): number {
-	try {
-		const efg = new URL(url).searchParams.get('efg');
-		if (!efg) return 0;
-		return (JSON.parse(atob(efg)) as { bitrate?: number }).bitrate ?? 0;
-	} catch {
-		return 0;
-	}
-}
-
-function cleanVideoUrl(url: string): string {
-	const u = new URL(url);
-	u.searchParams.delete('bytestart');
-	u.searchParams.delete('byteend');
-	return u.toString();
-}
-
-window.addEventListener('ig-dl-chunk', (evt) => {
-	const { blobUrl, chunkUrl } = (evt as CustomEvent<{ blobUrl: string, chunkUrl: string }>).detail;
-	const bitrate = parseEfgBitrate(chunkUrl);
-	const existing = blobToChunkUrl.get(blobUrl);
-	if (!existing || bitrate > existing.bitrate) {
-		blobToChunkUrl.set(blobUrl, { url: cleanVideoUrl(chunkUrl), bitrate });
-	}
-});
 
 function scanPage() {
 	const wrappers = document.querySelectorAll<HTMLImageElement>('article:has(img[alt^="Photo"]),article:has(video)');
@@ -124,20 +125,27 @@ function makeDownloadButton(source: HTMLImageElement | HTMLVideoElement, datetim
 		evt.stopPropagation();
 		evt.stopImmediatePropagation();
 
-		const filename = `${getProfileName(source) || 'unknown'}__${formatDatetime(datetime)}.${getFileExtension(source.src)}`;
-
 		if (source instanceof HTMLVideoElement) {
-			const blobUrl = source.src || source.currentSrc;
-			const candidate = blobToChunkUrl.get(blobUrl);
-			if (!candidate?.url) {
-				console.warn('[ig-dl] geen chunk URL gevonden voor', blobUrl);
+			const shortcode = getShortcode(source);
+			if (!shortcode) {
+				console.warn('[ig-dl] geen shortcode gevonden');
 				return;
 			}
-			void chrome.runtime.sendMessage({ type: 'download', url: candidate.url, filename });
+			const postId = shortcodeToPostId(shortcode);
+			const filename = `${getProfileName(source) || 'unknown'}__${formatDatetime(datetime)}.mp4`;
+			void sendMessage<VideoUrlResponse>({ type: 'get_video_url', postId })
+				.then((response) => {
+					if (!response?.url) {
+						console.warn('[ig-dl] geen video URL (shortcode=%s, postId=%s):', shortcode, postId, response?.error);
+						return;
+					}
+					void sendMessage({ type: 'download', url: response.url, filename });
+				});
 			return;
 		}
 
-		void chrome.runtime.sendMessage({
+		const filename = `${getProfileName(source) || 'unknown'}__${formatDatetime(datetime)}.${getFileExtension(source.src)}`;
+		void sendMessage({
 			type: 'download',
 			url: getBestImageUrl(source),
 			filename,
