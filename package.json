@@ -1,0 +1,28 @@
+{
+  "name": "instagram-downloader",
+  "version": "0.0.1",
+  "license": "GPL-3.0-only",
+  "author": "Kevin Van Den Haute",
+  "description": "Chrome extension to download images and videos from Instagram",
+  "keywords": [
+    "Instagram"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "evergreen": "ncu -i -c 3d --format group",
+    "postevergreen": "npm i",
+    "evergreen:minor": "ncu --target minor -c 3d -u",
+    "evergreen:patch": "ncu --target patch -c 3d -u"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "2.7.0",
+    "@types/chrome": "0.2.0",
+    "typescript": "6.0.3",
+    "vite": "8.1.0"
+  },
+  "dependencies": {
+    "npm-check-updates": "22.2.9"
+  }
+}
