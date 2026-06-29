@@ -5,13 +5,26 @@ interface StoredHeaders {
 	[key: string]: string
 }
 
+interface ImageCandidate {
+	url: string
+	width: number
+	height: number
+}
+
 interface MediaItem {
+	user?: { username: string }
 	video_url?: string
 	video_versions?: Array<{ url: string, width: number, height: number }>
+	image_versions2?: { candidates: ImageCandidate[] }
 }
 
 interface MediaInfoResponse {
 	items: MediaItem[]
+}
+
+interface MediaInfoResult {
+	downloadUrl: string
+	username: string
 }
 
 type DownloadMessage = {
@@ -20,12 +33,12 @@ type DownloadMessage = {
 	filename: string
 };
 
-type GetVideoUrlMessage = {
-	type: 'get_video_url'
+type GetMediaInfoMessage = {
+	type: 'get_media_info'
 	postId: string
 };
 
-type Message = DownloadMessage | GetVideoUrlMessage;
+type Message = DownloadMessage | GetMediaInfoMessage;
 
 // Intercept Instagram's eigen XHR-verzoeken om auth-headers te kopiëren
 chrome.webRequest.onBeforeSendHeaders.addListener(
@@ -62,17 +75,27 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 	return headers;
 }
 
-async function fetchVideoUrl(postId: string): Promise<string> {
+async function fetchMediaInfo(postId: string): Promise<MediaInfoResult> {
 	const headers = await getAuthHeaders();
 	const res = await fetch(`${INSTAGRAM_ORIGIN}/api/v1/media/${postId}/info/`, { headers, credentials: 'include' });
 	if (!res.ok) throw new Error(`API ${res.status}`);
 	const data = await res.json() as MediaInfoResponse;
 	const item = data.items[0];
 	if (!item) throw new Error('leeg antwoord van API');
-	if (item.video_url) return item.video_url;
-	const version = item.video_versions?.[0];
-	if (version) return version.url;
-	throw new Error('geen video_url in API-antwoord');
+
+	const username = item.user?.username ?? 'unknown';
+
+	if (item.video_url) return { downloadUrl: item.video_url, username };
+	const videoVersion = item.video_versions?.[0];
+	if (videoVersion) return { downloadUrl: videoVersion.url, username };
+
+	const candidates = item.image_versions2?.candidates;
+	if (candidates?.length) {
+		const best = [...candidates].sort((a, b) => b.width - a.width)[0];
+		return { downloadUrl: best.url, username };
+	}
+
+	throw new Error('geen media URL in API-antwoord');
 }
 
 chrome.runtime.onMessage.addListener(
@@ -84,9 +107,9 @@ chrome.runtime.onMessage.addListener(
 			);
 			return true;
 		}
-		if (message.type === 'get_video_url') {
-			fetchVideoUrl(message.postId)
-				.then(url => sendResponse({ url }))
+		if (message.type === 'get_media_info') {
+			fetchMediaInfo(message.postId)
+				.then(result => sendResponse(result))
 				.catch((err: unknown) => sendResponse({ error: String(err) }));
 			return true;
 		}

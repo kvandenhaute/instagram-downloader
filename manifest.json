@@ -8,6 +8,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*"],
+      "css": ["src/content.css"],
       "js": ["src/content.ts"],
       "run_at": "document_idle"
     }

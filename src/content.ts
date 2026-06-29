@@ -1,40 +1,11 @@
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 const BTN_CLASS_NAME = 'ig-dl-btn';
 
-const STYLE = `
-  article { position: relative !important; }
-  .${BTN_CLASS_NAME} {
-    position: absolute;
-    top: 10px;
-    left: 14px;
-    aspect-ratio: 1;
-    border: 0;
-    border-radius: 50%;
-    background-color: rgba(43, 48, 54, .5);
-    cursor: pointer;
-    z-index: 1;
-  }
-  .${BTN_CLASS_NAME}:hover {
-    background: rgba(43, 48, 54, .85);
-  }
-`;
-
-function injectStyle(): void {
-	if (document.getElementById('ig-dl-style')) {
-		return;
-	}
-
-	const el = document.createElement('style');
-	el.id = 'ig-dl-style';
-	el.textContent = STYLE;
-
-	document.head.appendChild(el);
-}
-
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-interface VideoUrlResponse {
-	url?: string
+interface MediaInfoResponse {
+	downloadUrl?: string
+	username?: string
 	error?: string
 }
 
@@ -66,16 +37,16 @@ function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function scanPage() {
-	const wrappers = document.querySelectorAll<HTMLImageElement>('article:has(img[alt^="Photo"]),article:has(video)');
+	const roots = document.querySelectorAll<HTMLImageElement>('article:has(img[alt^="Photo"]),article:has(video)');
 	// console.log('[ig-dl] scanPage', 'articles', articles.length);
 
-	wrappers.forEach(processWrapper);
+	roots.forEach(processRoot);
 }
 
-function processWrapper(wrapper: HTMLElement) {
-	const sources = wrapper.querySelectorAll<HTMLImageElement>('img[alt^="Photo"],video');
+function processRoot(root: HTMLElement) {
+	const sources = root.querySelectorAll<HTMLImageElement>('img[alt^="Photo"],video');
 
-	sources.forEach(processSource);
+	sources.forEach(source => processSource(source));
 }
 
 function processSource(source: HTMLImageElement | HTMLVideoElement) {
@@ -101,55 +72,41 @@ function processSource(source: HTMLImageElement | HTMLVideoElement) {
 		// console.log(new Date().toISOString());
 		return;
 	}
-	relativeAncestor.appendChild(makeDownloadButton(source, time.getAttribute('datetime') as string));
 
+	relativeAncestor.appendChild(makeDownloadButton(source, time.getAttribute('datetime') as string));
 	source.setAttribute(PROCESSED_ATTR, '1');
 }
 
 function makeDownloadButton(source: HTMLImageElement | HTMLVideoElement, datetime: string) {
 	const button = document.createElement('button');
-
-	if (source instanceof HTMLVideoElement) {
-		button.style.setProperty('top', '52px');
-	}
-
-	// button.style.setProperty('box-sizing', 'border-box');
-	// button.style.setProperty('background-color', 'rgba(43, 48, 54, .5)');
-
 	button.classList.add(BTN_CLASS_NAME);
-
 	button.appendChild(makeDownloadIcon());
-
 	button.addEventListener('click', (evt) => {
 		evt.preventDefault();
 		evt.stopPropagation();
 		evt.stopImmediatePropagation();
 
-		if (source instanceof HTMLVideoElement) {
-			const shortcode = getShortcode(source);
-			if (!shortcode) {
-				console.warn('[ig-dl] geen shortcode gevonden');
-				return;
-			}
-			const postId = shortcodeToPostId(shortcode);
-			const filename = `${getProfileName(source) || 'unknown'}__${formatDatetime(datetime)}.mp4`;
-			void sendMessage<VideoUrlResponse>({ type: 'get_video_url', postId })
-				.then((response) => {
-					if (!response?.url) {
-						console.warn('[ig-dl] geen video URL (shortcode=%s, postId=%s):', shortcode, postId, response?.error);
-						return;
-					}
-					void sendMessage({ type: 'download', url: response.url, filename });
-				});
+		const shortcode = getShortcode(source);
+		if (!shortcode) {
+			console.warn('[ig-dl] geen shortcode gevonden');
 			return;
 		}
 
-		const filename = `${getProfileName(source) || 'unknown'}__${formatDatetime(datetime)}.${getFileExtension(source.src)}`;
-		void sendMessage({
-			type: 'download',
-			url: getBestImageUrl(source),
-			filename,
-		});
+		const postId = shortcodeToPostId(shortcode);
+		void sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId })
+			.then((response) => {
+				if (!response?.downloadUrl) {
+					console.warn('[ig-dl] geen media URL (shortcode=%s, postId=%s):', shortcode, postId, response?.error);
+					return;
+				}
+				const ext = getFileExtension(response.downloadUrl);
+				const name = response.username ?? 'unknown';
+				void sendMessage({
+					type: 'download',
+					url: response.downloadUrl,
+					filename: `${name}__${formatDatetime(datetime)}.${ext}`,
+				});
+			});
 	});
 
 	return button;
@@ -173,28 +130,8 @@ function formatDatetime(datetime: string): string {
 		.replace(/\.\d+Z?$/, '');
 }
 
-function getBestImageUrl(img: HTMLImageElement): string {
-	const srcset = img.srcset;
-	if (!srcset) return img.src;
-	const candidates = srcset
-		.split(',')
-		.map((s) => {
-			const parts = s.trim().split(/\s+/);
-			return { url: parts[0] ?? '', width: parseInt(parts[1] ?? '0', 10) };
-		})
-		.filter(c => c.url);
-	candidates.sort((a, b) => b.width - a.width);
-	return candidates[0]?.url ?? img.src;
-}
-
 function getFileExtension(source: string) {
-	return new URL(source).pathname.split('.').pop() || 'webp';
-}
-
-function getProfileName(source: HTMLElement) {
-	console.log(source.closest(':has(a)')?.querySelector('a')?.textContent);
-
-	return source.closest(':has(a)')?.querySelector('a')?.textContent;
+	return new URL(source).pathname.split('.').pop() || 'jpg';
 }
 
 function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
@@ -219,7 +156,6 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 /////////
 
 function init(): void {
-	injectStyle();
 	scanPage();
 
 	const observer = new MutationObserver(() => {
