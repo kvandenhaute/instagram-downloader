@@ -22,6 +22,7 @@ window.fetch = async function (...args: Parameters<typeof fetch>) {
 };
 
 // Patch XHR
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalOpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...rest: unknown[]) {
   const urlStr = String(url);
@@ -32,10 +33,11 @@ XMLHttpRequest.prototype.open = function (method: string, url: string | URL, ...
       }
     });
   }
-  return (originalOpen as Function).call(this, method, url, ...rest);
+  originalOpen.call(this, method, url, ...rest);
 };
 
 // Patch MediaSource.addSourceBuffer
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalAddSourceBuffer = MediaSource.prototype.addSourceBuffer;
 MediaSource.prototype.addSourceBuffer = function (mimeType: string) {
   const sb = originalAddSourceBuffer.call(this, mimeType);
@@ -54,6 +56,7 @@ URL.createObjectURL = function (source: Blob | MediaSource | MediaStream) {
 };
 
 // Patch SourceBuffer.appendBuffer — hier kennen we de volledige keten
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalAppendBuffer = SourceBuffer.prototype.appendBuffer;
 SourceBuffer.prototype.appendBuffer = function (data: BufferSource) {
   const buffer = data instanceof ArrayBuffer ? data : (data as ArrayBufferView).buffer;

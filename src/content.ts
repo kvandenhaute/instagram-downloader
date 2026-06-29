@@ -27,22 +27,6 @@ function injectStyle(): void {
   document.head.appendChild(el);
 }
 
-
-
-function getBestImageUrl(img: HTMLImageElement): string {
-  const srcset = img.srcset;
-  if (!srcset) return img.src;
-  const candidates = srcset
-    .split(',')
-    .map((s) => {
-      const parts = s.trim().split(/\s+/);
-      return { url: parts[0] ?? '', width: parseInt(parts[1] ?? '0', 10) };
-    })
-    .filter((c) => c.url);
-  candidates.sort((a, b) => b.width - a.width);
-  return candidates[0]?.url ?? img.src;
-}
-
 ///////
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -131,7 +115,7 @@ function makeDownloadButton(source: HTMLImageElement | HTMLVideoElement, datetim
 
   button.appendChild(makeDownloadIcon());
 
-  button.addEventListener('click', async (evt) => {
+  button.addEventListener('click', (evt) => {
     evt.preventDefault();
     evt.stopPropagation();
     evt.stopImmediatePropagation();
@@ -145,12 +129,13 @@ function makeDownloadButton(source: HTMLImageElement | HTMLVideoElement, datetim
         console.warn('[ig-dl] geen chunk URL gevonden voor', blobUrl);
         return;
       }
-      return chrome.runtime.sendMessage({ type: 'download', url: candidate.url, filename });
+      void chrome.runtime.sendMessage({ type: 'download', url: candidate.url, filename });
+      return;
     }
 
-    return chrome.runtime.sendMessage({
+    void chrome.runtime.sendMessage({
       type: 'download',
-      url: getBestImageUrl(source as HTMLImageElement),
+      url: getBestImageUrl(source),
       filename
     });
   })
@@ -172,8 +157,22 @@ function makeDownloadIcon(): SVGSVGElement {
 function formatDatetime(datetime: string): string {
   return datetime
       .replace('T', '_')
-      .replace(/([:\-])/g, '')
+      .replace(/([:-])/g, '')
       .replace(/\.\d+Z?$/, '');
+}
+
+function getBestImageUrl(img: HTMLImageElement): string {
+  const srcset = img.srcset;
+  if (!srcset) return img.src;
+  const candidates = srcset
+      .split(',')
+      .map((s) => {
+        const parts = s.trim().split(/\s+/);
+        return { url: parts[0] ?? '', width: parseInt(parts[1] ?? '0', 10) };
+      })
+      .filter((c) => c.url);
+  candidates.sort((a, b) => b.width - a.width);
+  return candidates[0]?.url ?? img.src;
 }
 
 function getFileExtension(source: string) {
