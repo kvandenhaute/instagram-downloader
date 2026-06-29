@@ -1,21 +1,11 @@
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function init() {
-	const pathname = window.location.pathname;
-	const selectors: Array<string> = [];
-
-	if (pathname === '/') {
-		selectors.push('article img[alt^="Photo"]');
-		selectors.push('article video[src^="blob:https://www.instagram.com"]');
-	}
-
-	console.log(pathname);
-
-	scanPage(selectors);
+	scanPage();
 
 	const observer = new MutationObserver(() => {
 		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => scanPage(selectors), 300);
+		debounceTimer = setTimeout(scanPage, 300);
 	});
 
 	observer.observe(document.body, { childList: true, subtree: true });
@@ -32,7 +22,27 @@ if (document.readyState === 'loading') {
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-function scanPage(selectors: Array<string>) {
+function getSelectors() {
+	const pathname = window.location.pathname;
+	const selectors: Array<string> = [];
+
+	console.log(pathname);
+
+	if (pathname === '/' || pathname.startsWith('/p/')) {
+		selectors.push('article img[alt^="Photo"]');
+		selectors.push('article video[src^="blob:https://www.instagram.com"]');
+	}
+
+	if (pathname.startsWith('/p/')) {
+		selectors.push('main > div > div li img');
+		selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
+	}
+
+	return selectors;
+}
+
+function scanPage() {
+	const selectors = getSelectors();
 	if (selectors.length === 0) {
 		return;
 	}
@@ -53,7 +63,7 @@ function processSource(media: HTMLImageElement | HTMLVideoElement) {
 		return;
 	}
 
-	const container = media.closest<HTMLElement>('article');
+	const container = media.closest<HTMLElement>('article, main > div > div');
 	if (!container) {
 		console.warn('NO CONTAINER', media);
 		return;
