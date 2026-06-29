@@ -1,11 +1,21 @@
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function init() {
-	scanPage();
+	const pathname = window.location.pathname;
+	const selectors: Array<string> = [];
+
+	if (pathname === '/') {
+		selectors.push('article img[alt^="Photo"]');
+		selectors.push('article video[src^="blob:https://www.instagram.com"]');
+	}
+
+	console.log(pathname);
+
+	scanPage(selectors);
 
 	const observer = new MutationObserver(() => {
 		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(scanPage, 300);
+		debounceTimer = setTimeout(() => scanPage(selectors), 300);
 	});
 
 	observer.observe(document.body, { childList: true, subtree: true });
@@ -22,38 +32,42 @@ if (document.readyState === 'loading') {
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-function scanPage() {
-	const sources = document.querySelectorAll<HTMLImageElement>('img[draggable="false"],img[alt^="Photo"],video[src^="blob:https://www.instagram.com"]');
+function scanPage(selectors: Array<string>) {
+	if (selectors.length === 0) {
+		return;
+	}
+
+	const sources = document.querySelectorAll<HTMLImageElement>(selectors.join(','));
 
 	sources.forEach(processSource);
 }
 
-function processSource(source: HTMLImageElement | HTMLVideoElement) {
-	if (source.hasAttribute(PROCESSED_ATTR)) {
+function getDatetime(media: HTMLElement) {
+	const time = media.closest(':has(time[datetime])')?.querySelector('time[datetime]');
+
+	return time?.getAttribute('datetime') ?? new Date().toISOString();
+}
+
+function processSource(media: HTMLImageElement | HTMLVideoElement) {
+	if (media.hasAttribute(PROCESSED_ATTR)) {
 		return;
 	}
 
-	const wrapper = source.closest<HTMLElement>('article,li,body');
-	if (!wrapper) {
-		console.warn('NO WRAPPER');
+	const container = media.closest<HTMLElement>('article');
+	if (!container) {
+		console.warn('NO CONTAINER', media);
 		return;
 	}
 
-	const relativeAncestor = findRelativeAncestor(wrapper, source);
-	if (!relativeAncestor) {
-		console.warn('NO RELATIVE ANCESTOR');
-		return;
+	const relativeAncestor = findRelativeAncestor(container, media);
+	if (relativeAncestor) {
+		relativeAncestor.appendChild(makeDownloadButton(media));
+	} else {
+		container.style.setProperty('position', 'relative');
+		container.appendChild(makeDownloadButton(media));
 	}
 
-	const time = source.closest(':has(time[datetime])')?.querySelector('time[datetime]');
-	if (!time) {
-		console.warn('NO TIME');
-		// console.log(new Date().toISOString());
-		return;
-	}
-
-	relativeAncestor.appendChild(makeDownloadButton(source, time.getAttribute('datetime') as string));
-	source.setAttribute(PROCESSED_ATTR, '1');
+	media.setAttribute(PROCESSED_ATTR, '1');
 }
 
 function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
@@ -77,26 +91,28 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 
 // MAKERS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function makeDownloadButton(media: HTMLImageElement | HTMLVideoElement, datetime: string) {
+function makeDownloadButton(media: HTMLImageElement | HTMLVideoElement, index?: number) {
 	const button = document.createElement('button');
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
-	button.addEventListener('click', async (evt) => {
+	button.addEventListener('click', (evt) => {
 		evt.preventDefault();
 		evt.stopPropagation();
 		evt.stopImmediatePropagation();
 
 		const shortcode = findShortcode(media);
 		if (!shortcode) {
-			return downloadRawMedia(media, datetime);
+			void downloadRawMedia(media);
+			return;
 		}
 
-		const mediaInfo = await fetchMediaInfo(shortcode);
-		if (mediaInfo.carousel) {
-			return downloadRawMedia(media, datetime, mediaInfo.username);
-		}
+		void fetchMediaInfo(shortcode, index).then((mediaInfo) => {
+			if (mediaInfo.carousel) {
+				return downloadRawMedia(media, mediaInfo.username);
+			}
 
-		return download(mediaInfo, datetime);
+			return download(mediaInfo, getDatetime(media));
+		});
 	});
 
 	return button;
@@ -130,23 +146,23 @@ async function download(mediaInfo: MediaInfoResponse, datetime: string) {
 	});
 }
 
-async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, datetime: string, username: string = 'unknown') {
+async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
 	if (media instanceof HTMLVideoElement) {
 		console.warn('No shortcode found');
 		return;
 	}
 
-	return downloadRawImage(media, datetime, username);
+	return downloadRawImage(media, username);
 }
 
-async function downloadRawImage(img: HTMLImageElement, datetime: string, username: string) {
+async function downloadRawImage(img: HTMLImageElement, username: string) {
 	const url = getImageUrl(img);
 	const ext = getFileExtension(url);
 
 	return sendMessage({
 		type: 'download',
 		url,
-		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+		filename: `${username}__${formatDatetimeToFilenamePart(getDatetime(img))}.${ext}`,
 	});
 }
 
@@ -223,10 +239,10 @@ function getImageUrl(img: HTMLImageElement) {
 
 // MESSAGE /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function fetchMediaInfo(shortcode: string) {
+async function fetchMediaInfo(shortcode: string, index?: number) {
 	const postId = mapShortcodeToPostId(shortcode);
 
-	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
+	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId, index });
 }
 
 function sendMessage<T>(message: Record<string, unknown>): Promise<T> {

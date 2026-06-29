@@ -11,7 +11,7 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		}
 		if (message.type === 'get_media_info') {
-			fetchMediaInfo(message.postId)
+			fetchInstagramMediaInfo(message.postId)
 				.then(result => sendResponse(result))
 				.catch((err: unknown) => sendResponse({ error: String(err) }));
 			return true;
@@ -49,7 +49,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function fetchMediaInfo(postId: string) {
+async function fetchInstagramMediaInfo(postId: string) {
 	const headers = await getAuthHeaders();
 	const response = await fetch(`${INSTAGRAM_ORIGIN}/api/v1/media/${postId}/info/`, { headers, credentials: 'include' });
 	if (!response.ok) {
