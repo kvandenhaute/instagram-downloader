@@ -61,10 +61,10 @@ function processSource(media: HTMLImageElement | HTMLVideoElement) {
 
 	const relativeAncestor = findRelativeAncestor(container, media);
 	if (relativeAncestor) {
-		relativeAncestor.appendChild(makeDownloadButton(media));
+		relativeAncestor.appendChild(makeDownloadButton(container, media));
 	} else {
 		container.style.setProperty('position', 'relative');
-		container.appendChild(makeDownloadButton(media));
+		container.appendChild(makeDownloadButton(container, media));
 	}
 
 	media.setAttribute(PROCESSED_ATTR, '1');
@@ -91,14 +91,14 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 
 // MAKERS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function makeDownloadButton(media: HTMLImageElement | HTMLVideoElement, index?: number) {
+function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HTMLVideoElement) {
 	const button = document.createElement('button');
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
 	button.addEventListener('click', (evt) => {
 		evt.preventDefault();
 		evt.stopPropagation();
-		evt.stopImmediatePropagation();
+		// evt.stopImmediatePropagation();
 
 		const shortcode = findShortcode(media);
 		if (!shortcode) {
@@ -106,12 +106,34 @@ function makeDownloadButton(media: HTMLImageElement | HTMLVideoElement, index?: 
 			return;
 		}
 
-		void fetchMediaInfo(shortcode, index).then((mediaInfo) => {
-			if (mediaInfo.carousel) {
-				return downloadRawMedia(media, mediaInfo.username);
-			}
+		void fetchMediaInfo(shortcode).then((mediaInfo) => {
+			console.log(mediaInfo);
 
-			return download(mediaInfo, getDatetime(media));
+			const step = container.querySelector('button[aria-current="step"]');
+			if (step) {
+				const index = Array.from(step.parentElement!.children).indexOf(step);
+				const entry = mediaInfo.carousel_media?.at(index);
+				if (!entry) {
+					console.error('[ig-dl]', 'Could not find media entry');
+					return;
+				}
+
+				if (media instanceof HTMLVideoElement && entry.video) {
+					return download(entry.video, mediaInfo.username, getDatetime(media));
+				} else if (entry.image) {
+					return download(entry.image, mediaInfo.username, getDatetime(media));
+				}
+
+				console.error('[ig-dl]', 'Could not find media entry url');
+			} else {
+				if (media instanceof HTMLVideoElement && mediaInfo.video) {
+					return download(mediaInfo.video, mediaInfo.username, getDatetime(media));
+				} else if (mediaInfo.image) {
+					return download(mediaInfo.image, mediaInfo.username, getDatetime(media));
+				}
+
+				console.error('[ig-dl]', 'Could not find media item url');
+			}
 		});
 	});
 
@@ -131,18 +153,15 @@ function makeDownloadIcon(): SVGSVGElement {
 
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function download(mediaInfo: MediaInfoResponse, datetime: string) {
-	if (!mediaInfo?.downloadUrl) {
-		return;
-	}
+async function download(url: string, username: string, datetime: string) {
+	const ext = getFileExtension(url);
 
-	const ext = getFileExtension(mediaInfo.downloadUrl);
-	const name = mediaInfo.username ?? 'unknown';
+	console.log(datetime);
 
 	return sendMessage({
 		type: 'download',
-		url: mediaInfo.downloadUrl,
-		filename: `${name}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+		url,
+		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
 	});
 }
 
@@ -239,10 +258,10 @@ function getImageUrl(img: HTMLImageElement) {
 
 // MESSAGE /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function fetchMediaInfo(shortcode: string, index?: number) {
+async function fetchMediaInfo(shortcode: string) {
 	const postId = mapShortcodeToPostId(shortcode);
 
-	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId, index });
+	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
 }
 
 function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
@@ -252,8 +271,9 @@ function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MediaInfoResponse = {
-	carousel: boolean
-	downloadUrl?: string
-	username?: string
-	error?: string
+	carousel_media?: Array<{ image?: string, video?: string }>
+	image?: string
+	taken_at: number
+	username: string
+	video?: string
 };

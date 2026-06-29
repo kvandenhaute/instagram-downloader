@@ -63,40 +63,20 @@ async function fetchInstagramMediaInfo(postId: string) {
 		throw new Error(`Unexpected empty response for postId ${postId}`);
 	}
 
-	const username = item.user.username;
+	return {
+		carousel_media: item.carousel_media?.map(media => ({
+			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
+			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
+		})),
+		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
+		taken_at: item.taken_at,
+		username: item.user.username,
+		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
+	} satisfies MediaInfoResult;
+}
 
-	if (item.video_url) {
-		return {
-			carousel: typeof item.carousel_media !== 'undefined',
-			downloadUrl: item.video_url,
-			takenAt: item.taken_at,
-			username,
-		} satisfies MediaInfoResult;
-	}
-
-	const videoVersion = item.video_versions?.[0];
-	if (videoVersion) {
-		return {
-			carousel: typeof item.carousel_media !== 'undefined',
-			downloadUrl: videoVersion.url,
-			takenAt: item.taken_at,
-			username,
-		} satisfies MediaInfoResult;
-	}
-
-	const candidates = item.image_versions2?.candidates;
-	if (candidates?.length) {
-		const best = [...candidates].sort((a, b) => b.width - a.width)[0];
-
-		return {
-			carousel: typeof item.carousel_media !== 'undefined',
-			downloadUrl: best.url,
-			takenAt: item.taken_at,
-			username,
-		} satisfies MediaInfoResult;
-	}
-
-	throw new Error('No media url found');
+function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
+	return [...candidates].sort((a, b) => b.width - a.width)[0];
 }
 
 async function getAuthHeaders() {
@@ -155,10 +135,14 @@ type InstagramMediaVersion = {
 };
 
 type MediaInfoResult = {
-	carousel: boolean
-	downloadUrl: string
-	takenAt: number
+	carousel_media?: Array<{
+		image?: string
+		video?: string
+	}>
+	image?: string
+	taken_at: number
 	username: string
+	video?: string
 };
 
 type StoredHeaders = Record<string, string>;
