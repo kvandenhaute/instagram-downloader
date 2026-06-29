@@ -14,9 +14,10 @@ export default tseslint.config(
       },
     },
     rules: {
-      '@stylistic/indent': ['error', 'tab'],
-      '@stylistic/no-tabs': 'off',
-      '@stylistic/semi': ['error', 'always'],
+        '@stylistic/brace-style': ['error', '1tbs'],
+        '@stylistic/indent': ['error', 'tab'],
+        '@stylistic/no-tabs': 'off',
+        '@stylistic/semi': ['error', 'always'],
     },
   },
 );

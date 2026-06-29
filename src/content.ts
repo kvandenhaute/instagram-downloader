@@ -10,20 +10,24 @@ const STYLE = `
     aspect-ratio: 1;
     border: 0;
     border-radius: 50%;
-    background-color: purple;
+    background-color: rgba(43, 48, 54, .5);
     cursor: pointer;
     z-index: 1;
   }
   .${BTN_CLASS_NAME}:hover {
-    background: rgba(0,0,0,0.85);
+    background: rgba(43, 48, 54, .85);
   }
 `;
 
 function injectStyle(): void {
-	if (document.getElementById('ig-dl-style')) return;
+	if (document.getElementById('ig-dl-style')) {
+		return;
+	}
+
 	const el = document.createElement('style');
 	el.id = 'ig-dl-style';
 	el.textContent = STYLE;
+
 	document.head.appendChild(el);
 }
 
@@ -39,8 +43,7 @@ function parseEfgBitrate(url: string): number {
 		const efg = new URL(url).searchParams.get('efg');
 		if (!efg) return 0;
 		return (JSON.parse(atob(efg)) as { bitrate?: number }).bitrate ?? 0;
-	}
-	catch {
+	} catch {
 		return 0;
 	}
 }
@@ -195,8 +198,7 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 	while (current) {
 		if (getComputedStyle(current).position === 'relative') {
 			return current;
-		}
-		else if (current === root) {
+		} else if (current === root) {
 			return current;
 		}
 
@@ -222,7 +224,6 @@ function init(): void {
 
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', init);
-}
-else {
+} else {
 	init();
 }
