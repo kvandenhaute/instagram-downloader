@@ -1,52 +1,31 @@
-const PROCESSED_ATTR = 'data-ig-dl-processed';
-const BTN_CLASS_NAME = 'ig-dl-btn';
-
-const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-
-interface MediaInfoResponse {
-	downloadUrl?: string
-	username?: string
-	error?: string
-}
-
-function shortcodeToPostId(shortcode: string): string {
-	const code = shortcode.length > 28 ? shortcode.slice(0, shortcode.length - 28) : shortcode;
-	let id = BigInt(0);
-	for (const ch of code) {
-		id = id * BigInt(64) + BigInt(CHARS.indexOf(ch));
-	}
-	return id.toString();
-}
-
-function getShortcode(source: HTMLElement): string | null {
-	const article = source.closest('article');
-	if (!article) return null;
-	for (const a of article.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-		const match = a.href.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
-		if (match) return match[2] ?? null;
-	}
-	return null;
-}
-
-function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
-	return chrome.runtime.sendMessage(message);
-}
-
-///////
-
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-function scanPage() {
-	const roots = document.querySelectorAll<HTMLImageElement>('article:has(img[alt^="Photo"]),article:has(video)');
-	// console.log('[ig-dl] scanPage', 'articles', articles.length);
+function init() {
+	scanPage();
 
-	roots.forEach(processRoot);
+	const observer = new MutationObserver(() => {
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(scanPage, 300);
+	});
+
+	observer.observe(document.body, { childList: true, subtree: true });
 }
 
-function processRoot(root: HTMLElement) {
-	const sources = root.querySelectorAll<HTMLImageElement>('img[alt^="Photo"],video');
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', init);
+} else {
+	init();
+}
 
-	sources.forEach(source => processSource(source));
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const BTN_CLASS_NAME = 'ig-dl-btn';
+const PROCESSED_ATTR = 'data-ig-dl-processed';
+
+function scanPage() {
+	const sources = document.querySelectorAll<HTMLImageElement>('img[draggable="false"],img[alt^="Photo"],video[src^="blob:https://www.instagram.com"]');
+
+	sources.forEach(processSource);
 }
 
 function processSource(source: HTMLImageElement | HTMLVideoElement) {
@@ -54,7 +33,7 @@ function processSource(source: HTMLImageElement | HTMLVideoElement) {
 		return;
 	}
 
-	const wrapper = source.closest<HTMLElement>('article,li');
+	const wrapper = source.closest<HTMLElement>('article,li,body');
 	if (!wrapper) {
 		console.warn('NO WRAPPER');
 		return;
@@ -77,63 +56,6 @@ function processSource(source: HTMLImageElement | HTMLVideoElement) {
 	source.setAttribute(PROCESSED_ATTR, '1');
 }
 
-function makeDownloadButton(source: HTMLImageElement | HTMLVideoElement, datetime: string) {
-	const button = document.createElement('button');
-	button.classList.add(BTN_CLASS_NAME);
-	button.appendChild(makeDownloadIcon());
-	button.addEventListener('click', (evt) => {
-		evt.preventDefault();
-		evt.stopPropagation();
-		evt.stopImmediatePropagation();
-
-		const shortcode = getShortcode(source);
-		if (!shortcode) {
-			console.warn('[ig-dl] geen shortcode gevonden');
-			return;
-		}
-
-		const postId = shortcodeToPostId(shortcode);
-		void sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId })
-			.then((response) => {
-				if (!response?.downloadUrl) {
-					console.warn('[ig-dl] geen media URL (shortcode=%s, postId=%s):', shortcode, postId, response?.error);
-					return;
-				}
-				const ext = getFileExtension(response.downloadUrl);
-				const name = response.username ?? 'unknown';
-				void sendMessage({
-					type: 'download',
-					url: response.downloadUrl,
-					filename: `${name}__${formatDatetime(datetime)}.${ext}`,
-				});
-			});
-	});
-
-	return button;
-}
-
-function makeDownloadIcon(): SVGSVGElement {
-	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	svg.setAttribute('fill', 'none');
-	svg.setAttribute('viewBox', '0 0 24 24');
-	svg.setAttribute('width', '24');
-	svg.setAttribute('height', '24');
-	svg.innerHTML = '<path d="M19.5 17V19.5H5.5V17M17.5 11L12.5 16L7.5 11M12.5 16V4.99998" stroke="#fff" stroke-width="1.2"/>';
-
-	return svg;
-}
-
-function formatDatetime(datetime: string): string {
-	return datetime
-		.replace('T', '_')
-		.replace(/([:-])/g, '')
-		.replace(/\.\d+Z?$/, '');
-}
-
-function getFileExtension(source: string) {
-	return new URL(source).pathname.split('.').pop() || 'jpg';
-}
-
 function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
 	if (source instanceof HTMLVideoElement) {
 		return root.querySelector('[aria-label="Video player"]');
@@ -153,21 +75,169 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 	return null;
 }
 
-/////////
+// MAKERS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function init(): void {
-	scanPage();
+function makeDownloadButton(media: HTMLImageElement | HTMLVideoElement, datetime: string) {
+	const button = document.createElement('button');
+	button.classList.add(BTN_CLASS_NAME);
+	button.appendChild(makeDownloadIcon());
+	button.addEventListener('click', async (evt) => {
+		evt.preventDefault();
+		evt.stopPropagation();
+		evt.stopImmediatePropagation();
 
-	const observer = new MutationObserver(() => {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(scanPage, 300);
+		const shortcode = findShortcode(media);
+		if (!shortcode) {
+			return downloadRawMedia(media, datetime);
+		}
+
+		const mediaInfo = await fetchMediaInfo(shortcode);
+		if (mediaInfo.carousel) {
+			return downloadRawMedia(media, datetime, mediaInfo.username);
+		}
+
+		return download(mediaInfo, datetime);
 	});
 
-	observer.observe(document.body, { childList: true, subtree: true });
+	return button;
 }
 
-if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', init);
-} else {
-	init();
+function makeDownloadIcon(): SVGSVGElement {
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('fill', 'none');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('width', '24');
+	svg.setAttribute('height', '24');
+	svg.innerHTML = '<path d="M19.5 17V19.5H5.5V17M17.5 11L12.5 16L7.5 11M12.5 16V4.99998" stroke="#fff" stroke-width="1.2"/>';
+
+	return svg;
 }
+
+// DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function download(mediaInfo: MediaInfoResponse, datetime: string) {
+	if (!mediaInfo?.downloadUrl) {
+		return;
+	}
+
+	const ext = getFileExtension(mediaInfo.downloadUrl);
+	const name = mediaInfo.username ?? 'unknown';
+
+	return sendMessage({
+		type: 'download',
+		url: mediaInfo.downloadUrl,
+		filename: `${name}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+	});
+}
+
+async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, datetime: string, username: string = 'unknown') {
+	if (media instanceof HTMLVideoElement) {
+		console.warn('No shortcode found');
+		return;
+	}
+
+	return downloadRawImage(media, datetime, username);
+}
+
+async function downloadRawImage(img: HTMLImageElement, datetime: string, username: string) {
+	const url = getImageUrl(img);
+	const ext = getFileExtension(url);
+
+	return sendMessage({
+		type: 'download',
+		url,
+		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+	});
+}
+
+// SHORTCODE ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
+	const urlMatch = window.location.pathname.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
+	if (urlMatch) {
+		return urlMatch[2] ?? null;
+	}
+
+	const container = media.closest<HTMLElement>('article, [role="dialog"]');
+	if (!container) {
+		return null;
+	}
+
+	for (const a of container.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+		const match = a.href.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
+		if (match) {
+			return match[2] ?? null;
+		}
+	}
+
+	return null;
+}
+
+function mapShortcodeToPostId(shortcode: string) {
+	const code = shortcode.length > 28 ? shortcode.slice(0, shortcode.length - 28) : shortcode;
+	let id = BigInt(0);
+
+	for (const ch of code) {
+		id = id * BigInt(64) + BigInt(CHARS.indexOf(ch));
+	}
+
+	return id.toString();
+}
+
+// UTILS ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function formatDatetimeToFilenamePart(datetime: string): string {
+	return datetime
+		.replace('T', '_')
+		.replace(/([:-])/g, '')
+		.replace(/\.\d+Z?$/, '');
+}
+
+function getFileExtension(url: string) {
+	return new URL(url).pathname.split('.').pop() || 'jpg';
+}
+
+function getImageUrl(img: HTMLImageElement) {
+	const srcset = img.srcset;
+	if (!srcset) {
+		return img.src;
+	}
+
+	const candidates = srcset
+		.split(',')
+		.map((source) => {
+			const parts = source.trim().split(/\s+/);
+
+			return {
+				url: parts[0] ?? '',
+				width: parseInt(parts[1] ?? '0', 10),
+			};
+		})
+		.filter(c => c.url);
+	candidates.sort((a, b) => b.width - a.width);
+
+	return candidates[0]?.url ?? img.src;
+}
+
+// MESSAGE /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function fetchMediaInfo(shortcode: string) {
+	const postId = mapShortcodeToPostId(shortcode);
+
+	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
+}
+
+function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
+	return chrome.runtime.sendMessage(message);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type MediaInfoResponse = {
+	carousel: boolean
+	downloadUrl?: string
+	username?: string
+	error?: string
+};
