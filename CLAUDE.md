@@ -7,44 +7,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run build       # eenmalige build naar dist/
 npm run dev         # watch-mode build (herbouwt bij bestandswijzigingen)
+npm run lint        # ESLint over src/
 npm run evergreen   # interactieve dependency-upgrade (max 3 dagen oud)
 ```
 
-Er zijn geen tests of een linter geconfigureerd.
-
 ## Architectuur
 
-Dit is een Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin verwerkt `manifest.json` en bundelt de drie entry points naar `dist/`.
+Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin verwerkt `manifest.json` en bundelt de entry points naar `dist/`.
 
-### Drie scripts en hun rollen
+### Bestanden en rollen
 
 | Bestand | Context | Doel |
 |---|---|---|
-| `src/injected.ts` | `MAIN` world | Patcht browser-API's om video-chunk-URL's te onderscheppen |
-| `src/content.ts` | Isolated content script | Scant DOM, injecteert downloadknoppen, stuurt downloadverzoeken |
-| `src/background.ts` | Service worker | Voert `chrome.downloads.download()` uit |
+| `src/content.ts` | Isolated content script | Scant DOM, injecteert downloadknoppen, stuurt berichten naar background |
+| `src/content.css` | Content script CSS | Stijlen voor de downloadknop — automatisch geïnjecteerd via manifest |
+| `src/background.ts` | Service worker | Onderschept auth-headers, roept Instagram API aan, voert downloads uit |
 
-### Waarom twee content scripts?
-
-Video-URL-interceptie vereist directe toegang tot de pagina-API's (`fetch`, `XHR`, `MediaSource`, `SourceBuffer`, `URL.createObjectURL`), wat alleen mogelijk is in de `MAIN` world. Chrome-extensie-API's zoals `chrome.runtime.sendMessage` zijn echter uitsluitend beschikbaar in het geïsoleerde content script. Daarom zijn twee scripts nodig.
-
-### Communicatiekanalen
+### Communicatiekanaal
 
 ```
-injected.ts (MAIN)  →─ CustomEvent 'ig-dl-chunk' ──→  content.ts (isolated)
-content.ts          →─ chrome.runtime.sendMessage ──→  background.ts
+content.ts  →─ chrome.runtime.sendMessage ──→  background.ts
 ```
 
-### Video-URL-resolutie
+Twee berichttypen:
+- `get_media_info` — vraagt media-URL's en gebruikersnaam op via de Instagram API
+- `download` — triggert `chrome.downloads.download()`
 
-Instagram levert video's via MSE (Media Source Extensions). `injected.ts` volgt de volledige keten:
+### Hoe video- en foto-URL's worden opgehaald (API-aanpak)
 
-1. `fetch`/`XHR` onderschept `.mp4`-chunk-URL's en tagt de resulterende `ArrayBuffer` met `__igDlUrl`
-2. `SourceBuffer.appendBuffer` koppelt de chunk-URL via de `SourceBuffer → MediaSource → blob URL`-keten
-3. Een `ig-dl-chunk` CustomEvent stuurt `{ blobUrl, chunkUrl }` naar het content script
-4. `content.ts` slaat per blob-URL de chunk-URL met de hoogste bitrate op (via de `efg`-parameter in de URL)
-5. Bij klikken op de downloadknop wordt die chunk-URL naar de background service worker gestuurd
+In plaats van MSE-patching gebruikt de extensie **Instagram's private API**:
+
+1. **Header-interceptie** — `background.ts` luistert via `chrome.webRequest.onBeforeSendHeaders` op alle XHR-verzoeken van Instagram en slaat auth-headers op in `chrome.storage.local`:
+   - `x-ig-app-id`, `x-ig-www-claim`, `x-asbd-id`, `x-instagram-ajax`
+
+2. **Authenticatie** — bij een API-aanroep worden die opgeslagen headers gecombineerd met de `csrftoken` cookie (opgehaald via `chrome.cookies.get`) en meegestuurd met `credentials: 'include'`
+
+3. **Media-info** — endpoint: `GET /api/v1/media/{postId}/info/`  
+   Retourneert `user.username`, `taken_at`, `video_url`/`video_versions`, `image_versions2.candidates`, en `carousel_media` voor carrousels
+
+4. **Shortcode → postId** — Instagram shortcodes worden gedecodeerd naar een numeriek postId via een eigen base64-variant met alfabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` (in `mapShortcodeToPostId`)
+
+### Shortcode vinden in de DOM
+
+`findShortcode()` in `content.ts` werkt in twee stappen:
+1. Kijkt of de shortcode al in `window.location.pathname` staat (`/p/…` of `/reel/…`)
+2. Anders: zoekt een `<a href>` die `/p/` of `/reel/` bevat in de dichtstbijzijnde `article` of `[role="dialog"]`
+
+### Carrousel-index
+
+Om te weten welk item in een carrousel de gebruiker bekijkt, zoekt `content.ts` naar `button[aria-current="step"]` — de actieve paginatiestip. De index van die knop binnen zijn parent geeft de 0-gebaseerde slide-index, die vervolgens gebruikt wordt om het juiste item uit `carousel_media` te kiezen.
 
 ### Bestandsnaamgeving bij download
 
-`<profielnaam>__<datetime>.ext` — datetime wordt geëxtraheerd uit het `<time datetime="...">` element dat het dichtst bij het artikel staat.
+`<username>__<datetime>.<ext>` — `taken_at` uit de API (Unix-timestamp) of het `datetime`-attribuut van het dichtstbijzijnde `<time>`-element. Dit is de uploadtijd naar Instagram; de originele opnamedatum is niet beschikbaar via de API.
+
+### Permissies (manifest.json)
+
+| Permissie | Reden |
+|---|---|
+| `downloads` | `chrome.downloads.download()` |
+| `webRequest` + `extraHeaders` | Auth-headers uit Instagram-verzoeken lezen |
+| `cookies` | `csrftoken` ophalen voor API-authenticatie |
+| `storage` | Opgeslagen auth-headers bewaren tussen verzoeken |
+
+## ESLint
+
+Geconfigureerd in `eslint.config.js` met `typescript-eslint` (type-aware) en `@stylistic/eslint-plugin`. Stijlregels: tabs, puntkomma's, `1tbs` brace style.
