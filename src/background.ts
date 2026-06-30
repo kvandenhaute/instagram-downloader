@@ -28,7 +28,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 		const updates: StoredHeaders = {};
 		for (const header of details.requestHeaders) {
 			if (AUTH_HEADER_NAMES.includes(header.name.toLowerCase()) && header.value) {
-				updates[header.name.toLowerCase()] = header.value;
+				updates[ header.name.toLowerCase() ] = header.value;
 			}
 		}
 
@@ -37,7 +37,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 		}
 
 		void chrome.storage.local.get('igHeaders').then(data => {
-			const current = (data['igHeaders'] as StoredHeaders | undefined) ?? {};
+			const current = (data[ 'igHeaders' ] as StoredHeaders | undefined) ?? {};
 			void chrome.storage.local.set({
 				igHeaders: { ...current, ...updates },
 			});
@@ -91,7 +91,7 @@ async function fetchInstagramMediaInfo(postId: string) {
 
 	const data = await response.json() as InstagramMediaInfoResponse;
 
-	const item = data.items[0];
+	const item = data.items[ 0 ];
 	if (!item) {
 		throw new Error(`Unexpected empty response for postId ${postId}`);
 	}
@@ -111,7 +111,7 @@ async function fetchInstagramMediaInfo(postId: string) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
-	return [ ...candidates ].sort((a, b) => b.width - a.width)[0];
+	return [ ...candidates ].sort((a, b) => b.width - a.width)[ 0 ];
 }
 
 async function getAuthHeaders() {
@@ -124,11 +124,11 @@ async function getAuthHeaders() {
 	]);
 	const headers: Record<string, string> = {
 		'x-requested-with': 'XMLHttpRequest',
-		...((storage['igHeaders'] as StoredHeaders | undefined) ?? {}),
+		...((storage[ 'igHeaders' ] as StoredHeaders | undefined) ?? {}),
 	};
 
 	if (cookie?.value) {
-		headers['x-csrftoken'] = cookie.value;
+		headers[ 'x-csrftoken' ] = cookie.value;
 	}
 
 	return headers;

@@ -132,8 +132,8 @@ async function downloadRawImage(img: HTMLImageElement, username: string) {
 
 function findUsernameInUrl() {
 	const match = window.location.href.match(/\/stories\/([^/]+)\//);
-	if (match && match[1]) {
-		return match[1];
+	if (match && match[ 1 ]) {
+		return match[ 1 ];
 	}
 }
 
@@ -231,7 +231,7 @@ const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
 	const urlMatch = window.location.pathname.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
 	if (urlMatch) {
-		return urlMatch[2] ?? null;
+		return urlMatch[ 2 ] ?? null;
 	}
 
 	const container = media.closest<HTMLElement>('article, [role="dialog"]');
@@ -242,7 +242,7 @@ function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
 	for (const a of container.querySelectorAll<HTMLAnchorElement>('a[href]')) {
 		const match = a.href.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
 		if (match) {
-			return match[2] ?? null;
+			return match[ 2 ] ?? null;
 		}
 	}
 
@@ -285,14 +285,14 @@ function getImageUrl(img: HTMLImageElement) {
 			const parts = source.trim().split(/\s+/);
 
 			return {
-				url: parts[0] ?? '',
-				width: parseInt(parts[1] ?? '0', 10),
+				url: parts[ 0 ] ?? '',
+				width: parseInt(parts[ 1 ] ?? '0', 10),
 			};
 		})
 		.filter(c => c.url);
 	candidates.sort((a, b) => b.width - a.width);
 
-	return candidates[0]?.url ?? img.src;
+	return candidates[ 0 ]?.url ?? img.src;
 }
 
 // MESSAGE /////////////////////////////////////////////////////////////////////////////////////////////////////////////
