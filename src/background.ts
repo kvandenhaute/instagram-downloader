@@ -142,14 +142,15 @@ type InstagramUserReelsResponse = {
 				candidates: Array<InstagramMediaVersion>
 			}
 			pk: number
+			taken_at: number
 			video_versions?: Array<InstagramMediaVersion>
 		}>
 	}>
 };
 
 type InstagramUserReelsResult = {
-	[key: number]: string
-	reels: Array<string>
+	reels_by_pk: Record<string, { taken_at: number, url: string }>
+	reels: Array<{ taken_at: number, url: string }>
 };
 
 async function fetchInstagramUserReels(userId: number) {
@@ -167,22 +168,31 @@ async function fetchInstagramUserReels(userId: number) {
 		if (reel.video_versions) {
 			return {
 				pk: reel.pk,
+				takenAt: reel.taken_at,
 				url: findBestCandidate(reel.video_versions).url,
 			};
 		}
 
 		return {
 			pk: reel.pk,
+			takenAt: reel.taken_at,
 			url: findBestCandidate(reel.image_versions2.candidates).url,
 		};
 	});
 
 	const result: InstagramUserReelsResult = {
-		reels: reels.map(reel => reel.url),
+		reels_by_pk: {},
+		reels: reels.map(reel => ({
+			taken_at: reel.takenAt,
+			url: reel.url,
+		})),
 	};
 
 	reels.reduce(($result, reel) => {
-		$result[ reel.pk ] = reel.url;
+		$result.reels_by_pk[ reel.pk.toString(10) ] = {
+			taken_at: reel.takenAt,
+			url: reel.url,
+		};
 
 		return $result;
 	}, result);

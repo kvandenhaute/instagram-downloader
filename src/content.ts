@@ -103,14 +103,10 @@ function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 async function download(url: string, username: string, datetime: string) {
-	const ext = getFileExtension(url);
-
-	// console.log(datetime);
-
 	return sendMessage({
 		type: 'download',
 		url,
-		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+		filename: makeFilename(url, username, datetime),
 	});
 }
 
@@ -126,12 +122,11 @@ async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, user
 
 async function downloadRawImage(img: HTMLImageElement, username: string) {
 	const url = getImageUrl(img);
-	const ext = getFileExtension(url);
 
 	return sendMessage({
 		type: 'download',
 		url,
-		filename: `${username}__${formatDatetimeToFilenamePart(getDatetime(img))}.${ext}`,
+		filename: makeFilename(url, username, getDatetime(img)),
 	});
 }
 
@@ -149,10 +144,24 @@ async function downloadStory(media: HTMLImageElement | HTMLVideoElement, config:
 	const reels = await getUserReels(webProfileInfo.userId);
 
 	if (!storyId) {
-		console.log(reels.reels.at(0));
-	} else {
-		console.log(storyId, reels[ parseInt(storyId, 10) ]);
+		const firstReel = reels.reels.at(0);
+		if (!firstReel) {
+			console.error('[ig-dl]', 'No reels found');
+
+			return;
+		}
+
+		return download(firstReel.url, config.username, new Date(firstReel.taken_at).toISOString());
 	}
+
+	const reel = reels.reels_by_pk[ storyId.toString() ];
+	if (!reel) {
+		console.error('[ig-dl]', `No reel found for story ${storyId}`);
+
+		return;
+	}
+
+	return download(reel.url, config.username, new Date(reel.taken_at).toISOString());
 }
 
 async function downloadHandler(evt: PointerEvent, container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
@@ -200,6 +209,12 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 	}
 
 	console.error('[ig-dl]', 'Could not find media item url');
+}
+
+function makeFilename(url: string, username: string, datetime: string) {
+	const ext = getFileExtension(url);
+
+	return `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`;
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -384,8 +399,8 @@ async function getWebProfileInfo(username: string) {
 }
 
 type UserReelsResponse = {
-	[key: number]: string
-	reels: Array<string>
+	reels_by_pk: Record<string, { taken_at: number, url: string }>
+	reels: Array<{ taken_at: number, url: string }>
 };
 
 async function getUserReels(userId: number) {
