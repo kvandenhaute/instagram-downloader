@@ -130,7 +130,7 @@ async function downloadRawImage(img: HTMLImageElement, username: string) {
 	});
 }
 
-async function downloadStory(media: HTMLImageElement | HTMLVideoElement, config: Config) {
+async function downloadStory(config: Config) {
 	if (!config.username) {
 		console.error('[ig-dl]', 'No username in config');
 
@@ -156,6 +156,7 @@ async function downloadStory(media: HTMLImageElement | HTMLVideoElement, config:
 
 	const reel = reels.reels_by_pk[ storyId.toString() ];
 	if (!reel) {
+		console.debug('[ig-dl]', reels);
 		console.error('[ig-dl]', `No reel found for story ${storyId}`);
 
 		return;
@@ -169,7 +170,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 	evt.stopPropagation();
 
 	if (config.type === 'stories') {
-		return downloadStory(media, config);
+		return downloadStory(config);
 	}
 
 	const shortcode = findShortcode(media);
@@ -214,7 +215,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 function makeFilename(url: string, username: string, datetime: string) {
 	const ext = getFileExtension(url);
 
-	return `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`;
+	return `${username}_instagram_${formatDatetimeToFilenamePart(datetime)}.${ext}`;
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,7 +231,8 @@ function findUsernameInUrl() {
 
 function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
 	if (source instanceof HTMLVideoElement) {
-		return root.querySelector('[aria-label="Video player"]');
+		return null;
+		// return root.querySelector('[aria-label="Video player"]');
 	}
 
 	let current = source.parentElement;
