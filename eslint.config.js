@@ -14,48 +14,29 @@ export default tseslint.config(
       },
     },
     rules: {
-        // '@stylistic/array-bracket-newline': ['error', { multiline: true }],
-        '@stylistic/array-bracket-spacing': ['error', 'always', { arraysInArrays: true }],
-        '@stylistic/arrow-parens': ['error', 'as-needed'],
-        '@stylistic/arrow-spacing': 'error',
-        '@stylistic/block-spacing': 'error',
-        '@stylistic/brace-style': ['error', '1tbs'],
-        // '@stylistic/comma-dangle': 'error',
-        // '@stylistic/comma-style': 'error',
-        '@stylistic/computed-property-spacing': ['error', 'always'],
-        // '@stylistic/dot-location': ['error', 'property'],
-        '@stylistic/eol-last': 'error',
+        // Overrides t.o.v. recommended (andere opties)
+        '@stylistic/array-bracket-spacing': ['error', 'always', { arraysInArrays: true }], // recommended: 'never'
+        '@stylistic/arrow-parens': ['error', 'as-needed'], // recommended voegt requireForBlockBody: true toe
+        '@stylistic/brace-style': ['error', '1tbs'], // recommended: 'stroustrup'
+        '@stylistic/computed-property-spacing': ['error', 'always'], // recommended: 'never'
+        '@stylistic/indent': ['error', 'tab'], // recommended: 2 spaties
+        '@stylistic/multiline-ternary': ['error', 'never'], // recommended: 'always-multiline'
+        '@stylistic/no-extra-parens': 'error', // recommended: alleen 'functions', wij willen 'all'
+        '@stylistic/no-mixed-operators': 'off', // recommended: 'error'
+        '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxBOF: 1, maxEOF: 1 }], // recommended: maxBOF/maxEOF: 0
+        '@stylistic/no-tabs': 'off', // recommended: 'error'
+        '@stylistic/quote-props': ['error', 'as-needed'], // recommended: 'consistent-as-needed'
+        '@stylistic/quotes': ['error', 'single', { avoidEscape: true }], // recommended: avoidEscape: false
+        '@stylistic/semi': ['error', 'always'], // recommended: 'never'
+        '@stylistic/spaced-comment': ['error', 'always'], // recommended voegt uitzonderingen toe voor //, #!, etc.
+
+        // Niet in recommended
         '@stylistic/function-call-spacing': 'error',
         '@stylistic/function-paren-newline': ['error', 'consistent'],
         '@stylistic/implicit-arrow-linebreak': 'error',
-        '@stylistic/indent': ['error', 'tab'],
-        '@stylistic/key-spacing': 'error',
-        '@stylistic/keyword-spacing': 'error',
-        '@stylistic/multiline-ternary': ['error', 'never'],
-        '@stylistic/no-extra-parens': 'error',
         '@stylistic/no-extra-semi': 'error',
-        '@stylistic/no-floating-decimal': 'error',
-        '@stylistic/no-mixed-operators': 'off',
-        '@stylistic/no-multi-spaces': 'error',
-        '@stylistic/no-multiple-empty-lines': ['error', { max: 1, maxBOF: 1, maxEOF: 1 }],
-        '@stylistic/no-tabs': 'off',
-        '@stylistic/no-trailing-spaces': 'error',
-        '@stylistic/no-whitespace-before-property': 'error',
-        '@stylistic/object-curly-spacing': ['error', 'always'],
         '@stylistic/padding-line-between-statements': ['error', { blankLine: 'always', prev: '*', next: 'return' }],
-        '@stylistic/quote-props': ['error', 'as-needed'],
-        '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
-        '@stylistic/rest-spread-spacing': ['error', 'never'],
-        '@stylistic/semi': ['error', 'always'],
-        '@stylistic/semi-spacing': 'error',
         '@stylistic/semi-style': 'error',
-        '@stylistic/space-before-blocks': 'error',
-        '@stylistic/space-in-parens': 'error',
-        '@stylistic/space-infix-ops': 'error',
-        '@stylistic/spaced-comment': ['error', 'always'],
-        '@stylistic/template-curly-spacing': 'error',
-        '@stylistic/type-annotation-spacing': 'error',
-        '@stylistic/type-generic-spacing': 'error',
         '@stylistic/wrap-regex': 'error',
     },
   },
