@@ -20,7 +20,7 @@ chrome.runtime.onMessage.addListener(
 );
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
-	(details) => {
+	details => {
 		if (!details.requestHeaders?.length) {
 			return;
 		}
@@ -36,7 +36,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 			return;
 		}
 
-		void chrome.storage.local.get('igHeaders').then((data) => {
+		void chrome.storage.local.get('igHeaders').then(data => {
 			const current = (data['igHeaders'] as StoredHeaders | undefined) ?? {};
 			void chrome.storage.local.set({
 				igHeaders: { ...current, ...updates },

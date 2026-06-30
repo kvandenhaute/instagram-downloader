@@ -16,6 +16,9 @@ export default tseslint.config(
     rules: {
         // '@stylistic/array-bracket-newline': ['error', { multiline: true }],
         '@stylistic/array-bracket-spacing': ['error', 'always', { arraysInArrays: true }],
+        '@stylistic/arrow-parens': ['error', 'as-needed'],
+        '@stylistic/arrow-spacing': 'error',
+        '@stylistic/block-spacing': 'error',
         '@stylistic/brace-style': ['error', '1tbs'],
         '@stylistic/indent': ['error', 'tab'],
         '@stylistic/no-tabs': 'off',

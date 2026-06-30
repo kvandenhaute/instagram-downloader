@@ -168,7 +168,7 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 	const button = document.createElement('button');
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
-	button.addEventListener('click', (evt) => {
+	button.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
 		// evt.stopImmediatePropagation();
@@ -179,7 +179,7 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 			return;
 		}
 
-		void fetchMediaInfo(shortcode).then((mediaInfo) => {
+		void fetchMediaInfo(shortcode).then(mediaInfo => {
 			// console.log(mediaInfo);
 
 			const step = container.querySelector('button[aria-current="step"]');
@@ -281,7 +281,7 @@ function getImageUrl(img: HTMLImageElement) {
 
 	const candidates = srcset
 		.split(',')
-		.map((source) => {
+		.map(source => {
 			const parts = source.trim().split(/\s+/);
 
 			return {
