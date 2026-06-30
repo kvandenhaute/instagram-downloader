@@ -11,7 +11,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "lint": "eslint src",
+    "lint": "eslint src --fix",
     "evergreen": "ncu -i -c 3d --format group",
     "postevergreen": "npm i",
     "evergreen:minor": "ncu --target minor -c 3d -u",

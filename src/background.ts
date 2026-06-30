@@ -1,4 +1,4 @@
-const AUTH_HEADER_NAMES = ['x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax'];
+const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
 const INSTAGRAM_ORIGIN = 'https://www.instagram.com';
 
 chrome.runtime.onMessage.addListener(
@@ -43,8 +43,8 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 			});
 		});
 	},
-	{ urls: [`${INSTAGRAM_ORIGIN}/*`], types: ['xmlhttprequest'] },
-	['requestHeaders', 'extraHeaders'],
+	{ urls: [ `${INSTAGRAM_ORIGIN}/*` ], types: [ 'xmlhttprequest' ] },
+	[ 'requestHeaders', 'extraHeaders' ],
 );
 
 // INSTAGRAM MEDIA INFO ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,11 +111,11 @@ async function fetchInstagramMediaInfo(postId: string) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
-	return [...candidates].sort((a, b) => b.width - a.width)[0];
+	return [ ...candidates ].sort((a, b) => b.width - a.width)[0];
 }
 
 async function getAuthHeaders() {
-	const [storage, cookie] = await Promise.all([
+	const [ storage, cookie ] = await Promise.all([
 		chrome.storage.local.get('igHeaders'),
 		chrome.cookies.get({
 			url: INSTAGRAM_ORIGIN,
