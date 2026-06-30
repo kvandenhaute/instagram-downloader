@@ -22,63 +22,122 @@ if (document.readyState === 'loading') {
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-function getSelectors() {
-	const pathname = window.location.pathname;
-	const selectors: Array<string> = [];
+type Config = {
+	containers: Array<string>
+	selectors: Array<string>
+	username?: string
+};
 
-	console.log(pathname);
+function getConfig() {
+	const pathname = window.location.pathname;
+
+	// console.log(pathname);
+
+	const config: Config = {
+		containers: [],
+		selectors: [],
+		username: findUsernameInUrl(),
+	};
+
+	// console.log(config.username);
 
 	if (pathname === '/' || pathname.startsWith('/p/')) {
-		selectors.push('article img[alt^="Photo"]');
-		selectors.push('article video[src^="blob:https://www.instagram.com"]');
+		config.containers.push('article');
+		config.selectors.push('article img[alt^="Photo"]');
+		config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
 	}
 
 	if (pathname.startsWith('/p/')) {
-		selectors.push('main > div > div li img');
-		selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
+		config.containers.push('main > div > div');
+		config.selectors.push('main > div > div li img');
+		config.selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
 	}
 
-	return selectors;
+	if (pathname.startsWith('/stories/')) {
+		config.containers.push('section');
+		config.selectors.push('section img', 'section video');
+	}
+
+	return config;
 }
 
 function scanPage() {
-	const selectors = getSelectors();
-	if (selectors.length === 0) {
+	const config = getConfig();
+	if (config.selectors.length === 0) {
 		return;
 	}
 
-	const sources = document.querySelectorAll<HTMLImageElement>(selectors.join(','));
+	const media = document.querySelectorAll<HTMLImageElement>(config.selectors.join(','));
 
-	sources.forEach(processSource);
+	media.forEach(m => processMedia(m, config));
 }
 
-function getDatetime(media: HTMLElement) {
-	const time = media.closest(':has(time[datetime])')?.querySelector('time[datetime]');
-
-	return time?.getAttribute('datetime') ?? new Date().toISOString();
-}
-
-function processSource(media: HTMLImageElement | HTMLVideoElement) {
+function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config) {
 	if (media.hasAttribute(PROCESSED_ATTR)) {
 		return;
 	}
 
-	const container = media.closest<HTMLElement>('article, main > div > div');
+	const container = media.closest<HTMLElement>(config.containers.join(','));
 	if (!container) {
-		console.warn('NO CONTAINER', media);
+		console.warn('NO CONTAINER', media, config.containers);
 		return;
 	}
 
 	const relativeAncestor = findRelativeAncestor(container, media);
 	if (relativeAncestor) {
-		relativeAncestor.appendChild(makeDownloadButton(container, media));
+		relativeAncestor.appendChild(makeDownloadButton(container, media, config));
 	} else {
 		container.style.setProperty('position', 'relative');
-		container.appendChild(makeDownloadButton(container, media));
+		container.appendChild(makeDownloadButton(container, media, config));
 	}
 
 	media.setAttribute(PROCESSED_ATTR, '1');
 }
+
+// DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+async function download(url: string, username: string, datetime: string) {
+	const ext = getFileExtension(url);
+
+	console.log(datetime);
+
+	return sendMessage({
+		type: 'download',
+		url,
+		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
+	});
+}
+
+async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
+	if (media instanceof HTMLVideoElement) {
+		console.warn('Download of raw video not supported');
+		return;
+	}
+
+	return downloadRawImage(media, username);
+}
+
+async function downloadRawImage(img: HTMLImageElement, username: string) {
+	const url = getImageUrl(img);
+	const ext = getFileExtension(url);
+
+	return sendMessage({
+		type: 'download',
+		url,
+		filename: `${username}__${formatDatetimeToFilenamePart(getDatetime(img))}.${ext}`,
+	});
+}
+
+// URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function findUsernameInUrl() {
+	const match = window.location.href.match(/\/stories\/([^/]+)\//);
+	if (match && match[1]) {
+		return match[1];
+	}
+}
+
+// DOM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
 	if (source instanceof HTMLVideoElement) {
@@ -99,9 +158,13 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 	return null;
 }
 
-// MAKERS //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function getDatetime(media: HTMLElement) {
+	const time = media.closest(':has(time[datetime])')?.querySelector('time[datetime]');
 
-function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HTMLVideoElement) {
+	return time?.getAttribute('datetime') ?? new Date().toISOString();
+}
+
+function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
 	const button = document.createElement('button');
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
@@ -112,12 +175,12 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 
 		const shortcode = findShortcode(media);
 		if (!shortcode) {
-			void downloadRawMedia(media);
+			void downloadRawMedia(media, config.username);
 			return;
 		}
 
 		void fetchMediaInfo(shortcode).then((mediaInfo) => {
-			console.log(mediaInfo);
+			// console.log(mediaInfo);
 
 			const step = container.querySelector('button[aria-current="step"]');
 			if (step) {
@@ -159,40 +222,6 @@ function makeDownloadIcon(): SVGSVGElement {
 	svg.innerHTML = '<path d="M19.5 17V19.5H5.5V17M17.5 11L12.5 16L7.5 11M12.5 16V4.99998" stroke="#fff" stroke-width="1.2"/>';
 
 	return svg;
-}
-
-// DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-async function download(url: string, username: string, datetime: string) {
-	const ext = getFileExtension(url);
-
-	console.log(datetime);
-
-	return sendMessage({
-		type: 'download',
-		url,
-		filename: `${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`,
-	});
-}
-
-async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
-	if (media instanceof HTMLVideoElement) {
-		console.warn('No shortcode found');
-		return;
-	}
-
-	return downloadRawImage(media, username);
-}
-
-async function downloadRawImage(img: HTMLImageElement, username: string) {
-	const url = getImageUrl(img);
-	const ext = getFileExtension(url);
-
-	return sendMessage({
-		type: 'download',
-		url,
-		filename: `${username}__${formatDatetimeToFilenamePart(getDatetime(img))}.${ext}`,
-	});
 }
 
 // SHORTCODE ///////////////////////////////////////////////////////////////////////////////////////////////////////////

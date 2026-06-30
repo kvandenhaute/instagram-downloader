@@ -47,59 +47,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 	['requestHeaders', 'extraHeaders'],
 );
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-async function fetchInstagramMediaInfo(postId: string) {
-	const headers = await getAuthHeaders();
-	const response = await fetch(`${INSTAGRAM_ORIGIN}/api/v1/media/${postId}/info/`, { headers, credentials: 'include' });
-	if (!response.ok) {
-		throw new Error(`API ${response.status}`);
-	}
-
-	const data = await response.json() as InstagramMediaInfoResponse;
-
-	const item = data.items[0];
-	if (!item) {
-		throw new Error(`Unexpected empty response for postId ${postId}`);
-	}
-
-	return {
-		carousel_media: item.carousel_media?.map(media => ({
-			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
-			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
-		})),
-		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
-		taken_at: item.taken_at,
-		username: item.user.username,
-		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
-	} satisfies MediaInfoResult;
-}
-
-function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
-	return [...candidates].sort((a, b) => b.width - a.width)[0];
-}
-
-async function getAuthHeaders() {
-	const [storage, cookie] = await Promise.all([
-		chrome.storage.local.get('igHeaders'),
-		chrome.cookies.get({
-			url: INSTAGRAM_ORIGIN,
-			name: 'csrftoken',
-		}),
-	]);
-	const headers: Record<string, string> = {
-		'x-requested-with': 'XMLHttpRequest',
-		...((storage['igHeaders'] as StoredHeaders | undefined) ?? {}),
-	};
-
-	if (cookie?.value) {
-		headers['x-csrftoken'] = cookie.value;
-	}
-
-	return headers;
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// INSTAGRAM MEDIA INFO ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type InstagramCarouselItem = {
 	image_versions2?: {
@@ -133,6 +81,60 @@ type InstagramMediaVersion = {
 	width: number
 	height: number
 };
+
+async function fetchInstagramMediaInfo(postId: string) {
+	const headers = await getAuthHeaders();
+	const response = await fetch(`${INSTAGRAM_ORIGIN}/api/v1/media/${postId}/info/`, { headers, credentials: 'include' });
+	if (!response.ok) {
+		throw new Error(`API ${response.status}`);
+	}
+
+	const data = await response.json() as InstagramMediaInfoResponse;
+
+	const item = data.items[0];
+	if (!item) {
+		throw new Error(`Unexpected empty response for postId ${postId}`);
+	}
+
+	return {
+		carousel_media: item.carousel_media?.map(media => ({
+			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
+			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
+		})),
+		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
+		taken_at: item.taken_at,
+		username: item.user.username,
+		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
+	} satisfies MediaInfoResult;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
+	return [...candidates].sort((a, b) => b.width - a.width)[0];
+}
+
+async function getAuthHeaders() {
+	const [storage, cookie] = await Promise.all([
+		chrome.storage.local.get('igHeaders'),
+		chrome.cookies.get({
+			url: INSTAGRAM_ORIGIN,
+			name: 'csrftoken',
+		}),
+	]);
+	const headers: Record<string, string> = {
+		'x-requested-with': 'XMLHttpRequest',
+		...((storage['igHeaders'] as StoredHeaders | undefined) ?? {}),
+	};
+
+	if (cookie?.value) {
+		headers['x-csrftoken'] = cookie.value;
+	}
+
+	return headers;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MediaInfoResult = {
 	carousel_media?: Array<{
