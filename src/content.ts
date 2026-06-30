@@ -1,3 +1,5 @@
+import { Result } from './types';
+
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function init() {
@@ -26,6 +28,7 @@ type Config = {
 	containers: Array<string>
 	selectors: Array<string>
 	username?: string
+	type: 'home-feed' | 'stories'
 };
 
 function getConfig() {
@@ -37,6 +40,7 @@ function getConfig() {
 		containers: [],
 		selectors: [],
 		username: findUsernameInUrl(),
+		type: 'home-feed',
 	};
 
 	// console.log(config.username);
@@ -56,6 +60,7 @@ function getConfig() {
 	if (pathname.startsWith('/stories/')) {
 		config.containers.push('section');
 		config.selectors.push('section img', 'section video');
+		config.type = 'stories';
 	}
 
 	return config;
@@ -100,7 +105,7 @@ function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config
 async function download(url: string, username: string, datetime: string) {
 	const ext = getFileExtension(url);
 
-	console.log(datetime);
+	// console.log(datetime);
 
 	return sendMessage({
 		type: 'download',
@@ -128,6 +133,73 @@ async function downloadRawImage(img: HTMLImageElement, username: string) {
 		url,
 		filename: `${username}__${formatDatetimeToFilenamePart(getDatetime(img))}.${ext}`,
 	});
+}
+
+async function downloadStory(media: HTMLImageElement | HTMLVideoElement, config: Config) {
+	if (!config.username) {
+		console.error('[ig-dl]', 'No username in config');
+
+		return;
+	}
+
+	const match = window.location.href.match(/\/stories\/[^/]+\/(\d+)/);
+	const storyId = match?.at(1);
+
+	const webProfileInfo = await getWebProfileInfo(config.username);
+	const reels = await getUserReels(webProfileInfo.userId);
+
+	if (!storyId) {
+		console.log(reels.reels.at(0));
+	} else {
+		console.log(storyId, reels[ parseInt(storyId, 10) ]);
+	}
+}
+
+async function downloadHandler(evt: PointerEvent, container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
+	evt.preventDefault();
+	evt.stopPropagation();
+
+	if (config.type === 'stories') {
+		return downloadStory(media, config);
+	}
+
+	const shortcode = findShortcode(media);
+	if (!shortcode) {
+		void downloadRawMedia(media, config.username);
+
+		return;
+	}
+
+	const mediaInfo = await getMediaInfo(shortcode);
+
+	const step = container.querySelector('button[aria-current="step"]');
+	if (step) {
+		const index = Array.from(step.parentElement!.children).indexOf(step);
+		const entry = mediaInfo.carousel_media?.at(index);
+		if (!entry) {
+			console.error('[ig-dl]', 'Could not find media entry');
+
+			return;
+		}
+
+		if (media instanceof HTMLVideoElement && entry.video) {
+			return download(entry.video, mediaInfo.username, getDatetime(media));
+		} else if (entry.image) {
+			return download(entry.image, mediaInfo.username, getDatetime(media));
+		}
+
+		console.error('[ig-dl]', 'Could not find media entry url');
+
+		return;
+	}
+
+	if (media instanceof HTMLVideoElement && mediaInfo.video) {
+		return download(mediaInfo.video, mediaInfo.username, getDatetime(media));
+	} else if (mediaInfo.image) {
+		return download(mediaInfo.image, mediaInfo.username, getDatetime(media));
+	}
+
+	console.error('[ig-dl]', 'Could not find media item url');
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,49 +242,7 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 	const button = document.createElement('button');
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
-	button.addEventListener('click', evt => {
-		evt.preventDefault();
-		evt.stopPropagation();
-		// evt.stopImmediatePropagation();
-
-		const shortcode = findShortcode(media);
-		if (!shortcode) {
-			void downloadRawMedia(media, config.username);
-
-			return;
-		}
-
-		void fetchMediaInfo(shortcode).then(mediaInfo => {
-			// console.log(mediaInfo);
-
-			const step = container.querySelector('button[aria-current="step"]');
-			if (step) {
-				const index = Array.from(step.parentElement!.children).indexOf(step);
-				const entry = mediaInfo.carousel_media?.at(index);
-				if (!entry) {
-					console.error('[ig-dl]', 'Could not find media entry');
-
-					return;
-				}
-
-				if (media instanceof HTMLVideoElement && entry.video) {
-					return download(entry.video, mediaInfo.username, getDatetime(media));
-				} else if (entry.image) {
-					return download(entry.image, mediaInfo.username, getDatetime(media));
-				}
-
-				console.error('[ig-dl]', 'Could not find media entry url');
-			} else {
-				if (media instanceof HTMLVideoElement && mediaInfo.video) {
-					return download(mediaInfo.video, mediaInfo.username, getDatetime(media));
-				} else if (mediaInfo.image) {
-					return download(mediaInfo.image, mediaInfo.username, getDatetime(media));
-				}
-
-				console.error('[ig-dl]', 'Could not find media item url');
-			}
-		});
-	});
+	button.addEventListener('click', evt => void downloadHandler(evt, container, media, config));
 
 	return button;
 }
@@ -299,19 +329,11 @@ function getImageUrl(img: HTMLImageElement) {
 	return candidates[ 0 ]?.url ?? img.src;
 }
 
-// MESSAGE /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function fetchMediaInfo(shortcode: string) {
-	const postId = mapShortcodeToPostId(shortcode);
-
-	return sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
-}
-
-function sendMessage<T>(message: Record<string, unknown>): Promise<T> {
+function sendMessage<T>(message: Record<string, unknown>): Promise<Result<T>> {
 	return chrome.runtime.sendMessage(message);
 }
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MediaInfoResponse = {
 	carousel_media?: Array<{ image?: string, video?: string }>
@@ -320,3 +342,57 @@ type MediaInfoResponse = {
 	username: string
 	video?: string
 };
+
+const mediaInfoMap: Map<string, MediaInfoResponse> = new Map();
+
+async function getMediaInfo(shortcode: string) {
+	const mediaInfo = mediaInfoMap.get(shortcode);
+	if (mediaInfo) {
+		return mediaInfo;
+	}
+
+	const postId = mapShortcodeToPostId(shortcode);
+	const getMediaInfoResult = await sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
+	if (!getMediaInfoResult.success) {
+		throw getMediaInfoResult.error;
+	}
+
+	mediaInfoMap.set(shortcode, getMediaInfoResult.data);
+
+	return getMediaInfoResult.data;
+}
+
+type WebProfileInfoResponse = {
+	userId: number
+};
+
+const webProfileInfoMap: Map<string, WebProfileInfoResponse> = new Map();
+
+async function getWebProfileInfo(username: string) {
+	const webProfileInfo = webProfileInfoMap.get(username);
+	if (webProfileInfo) {
+		return webProfileInfo;
+	}
+
+	const getWebProfileInfoResult = await sendMessage<WebProfileInfoResponse>({ type: 'get_web_profile_info', username });
+	if (!getWebProfileInfoResult.success) {
+		throw getWebProfileInfoResult.error;
+	}
+	webProfileInfoMap.set(username, getWebProfileInfoResult.data);
+
+	return getWebProfileInfoResult.data;
+}
+
+type UserReelsResponse = {
+	[key: number]: string
+	reels: Array<string>
+};
+
+async function getUserReels(userId: number) {
+	const getUserReelsResult = await sendMessage<UserReelsResponse>({ type: 'get_user_reels', userId });
+	if (!getUserReelsResult.success) {
+		throw getUserReelsResult.error;
+	}
+
+	return getUserReelsResult.data;
+}
