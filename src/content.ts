@@ -80,6 +80,7 @@ function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config
 	const container = media.closest<HTMLElement>(config.containers.join(','));
 	if (!container) {
 		console.warn('NO CONTAINER', media, config.containers);
+
 		return;
 	}
 
@@ -111,6 +112,7 @@ async function download(url: string, username: string, datetime: string) {
 async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
 	if (media instanceof HTMLVideoElement) {
 		console.warn('Download of raw video not supported');
+
 		return;
 	}
 
@@ -176,6 +178,7 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 		const shortcode = findShortcode(media);
 		if (!shortcode) {
 			void downloadRawMedia(media, config.username);
+
 			return;
 		}
 
@@ -188,6 +191,7 @@ function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HT
 				const entry = mediaInfo.carousel_media?.at(index);
 				if (!entry) {
 					console.error('[ig-dl]', 'Could not find media entry');
+
 					return;
 				}
 

@@ -8,12 +8,14 @@ chrome.runtime.onMessage.addListener(
 				{ url: message.url, filename: message.filename, saveAs: false },
 				() => sendResponse({ success: !chrome.runtime.lastError }),
 			);
+
 			return true;
 		}
 		if (message.type === 'get_media_info') {
 			fetchInstagramMediaInfo(message.postId)
 				.then(result => sendResponse(result))
 				.catch((err: unknown) => sendResponse({ error: String(err) }));
+
 			return true;
 		}
 	},
