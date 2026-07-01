@@ -1,26 +1,5 @@
 import { Result } from './types';
 
-let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-
-function init() {
-	scanPage();
-
-	const observer = new MutationObserver(() => {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(scanPage, 300);
-	});
-
-	observer.observe(document.body, { childList: true, subtree: true });
-}
-
-if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', init);
-} else {
-	init();
-}
-
-// //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
@@ -28,7 +7,8 @@ type Config = {
 	containers: Array<string>
 	selectors: Array<string>
 	username?: string
-	type: 'home-feed' | 'stories'
+	usernameSelector?: string
+	type: 'home-feed' | 'reels' | 'stories'
 };
 
 function getConfig() {
@@ -55,6 +35,13 @@ function getConfig() {
 		config.containers.push('main > div > div');
 		config.selectors.push('main > div > div li img');
 		config.selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
+	}
+
+	if (pathname.startsWith('/reels/')) {
+		config.containers.push('main > div > div:has(video)');
+		config.selectors.push('main > div > div video');
+		config.usernameSelector = 'a[href$="/reels/"]';
+		config.type = 'reels';
 	}
 
 	if (pathname.startsWith('/stories/')) {
@@ -102,74 +89,13 @@ function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config
 
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function download(url: string, username: string, datetime: string) {
-	return sendMessage({
-		type: 'download',
-		url,
-		filename: makeFilename(url, username, datetime),
-	});
-}
-
-async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
-	if (media instanceof HTMLVideoElement) {
-		console.warn('Download of raw video not supported');
-
-		return;
-	}
-
-	return downloadRawImage(media, username);
-}
-
-async function downloadRawImage(img: HTMLImageElement, username: string) {
-	const url = getImageUrl(img);
-
-	return sendMessage({
-		type: 'download',
-		url,
-		filename: makeFilename(url, username, getDatetime(img)),
-	});
-}
-
-async function downloadStory(config: Config) {
-	if (!config.username) {
-		console.error('[ig-dl]', 'No username in config');
-
-		return;
-	}
-
-	const match = window.location.href.match(/\/stories\/[^/]+\/(\d+)/);
-	const storyId = match?.at(1);
-
-	const webProfileInfo = await getWebProfileInfo(config.username);
-	const reels = await getUserReels(webProfileInfo.userId);
-
-	if (!storyId) {
-		const firstReel = reels.reels.at(0);
-		if (!firstReel) {
-			console.error('[ig-dl]', 'No reels found');
-
-			return;
-		}
-
-		return download(firstReel.url, config.username, new Date(firstReel.taken_at).toISOString());
-	}
-
-	const reel = reels.reels_by_pk[ storyId.toString() ];
-	if (!reel) {
-		console.debug('[ig-dl]', reels);
-		console.error('[ig-dl]', `No reel found for story ${storyId}`);
-
-		return;
-	}
-
-	return download(reel.url, config.username, new Date(reel.taken_at).toISOString());
-}
-
 async function downloadHandler(evt: PointerEvent, container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
 	evt.preventDefault();
 	evt.stopPropagation();
 
-	if (config.type === 'stories') {
+	if (config.type === 'reels') {
+		return downloadReels(config);
+	} else if (config.type === 'stories') {
 		return downloadStory(config);
 	}
 
@@ -212,10 +138,93 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 	console.error('[ig-dl]', 'Could not find media item url');
 }
 
+async function downloadReels(config: Config) {
+	console.log(config);
+
+	const shortcode = findShortcodeInUrl();
+	if (!shortcode) {
+		console.error('[ig-dl]', 'Could not find shortcode in url');
+
+		return;
+	}
+
+	const mediaInfo = await getMediaInfo(shortcode);
+	if (!mediaInfo.video) {
+		console.error('[ig-dl]', 'Expected to have a video URL within the mediaInfo response');
+
+		return;
+	}
+
+	return download(mediaInfo.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
+}
+
+async function downloadStory(config: Config) {
+	if (!config.username) {
+		console.error('[ig-dl]', 'No username in config');
+
+		return;
+	}
+
+	const match = window.location.href.match(/\/stories\/[^/]+\/(\d+)/);
+	const storyId = match?.at(1);
+
+	const webProfileInfo = await getWebProfileInfo(config.username);
+	const reels = await getUserReels(webProfileInfo.userId);
+
+	if (!storyId) {
+		const firstReel = reels.reels.at(0);
+		if (!firstReel) {
+			console.error('[ig-dl]', 'No reels found');
+
+			return;
+		}
+
+		return download(firstReel.url, config.username, getDatetime(firstReel.taken_at));
+	}
+
+	const reel = reels.reels_by_pk[ storyId.toString() ];
+	if (!reel) {
+		console.debug('[ig-dl]', reels);
+		console.error('[ig-dl]', `No reel found for story ${storyId}`);
+
+		return;
+	}
+
+	return download(reel.url, config.username, getDatetime(reel.taken_at));
+}
+
+async function download(url: string, username: string, datetime: string) {
+	return sendMessage({
+		type: 'download',
+		url,
+		filename: makeFilename(url, username, datetime),
+	});
+}
+
+async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
+	if (media instanceof HTMLVideoElement) {
+		console.warn('Download of raw video not supported');
+
+		return;
+	}
+
+	return downloadRawImage(media, username);
+}
+
+async function downloadRawImage(img: HTMLImageElement, username: string) {
+	const url = getImageUrl(img);
+
+	return sendMessage({
+		type: 'download',
+		url,
+		filename: makeFilename(url, username, getDatetime(img)),
+	});
+}
+
 function makeFilename(url: string, username: string, datetime: string) {
 	const ext = getFileExtension(url);
 
-	return `${username}_instagram_${formatDatetimeToFilenamePart(datetime)}.${ext}`;
+	return `instagram_${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`;
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -249,14 +258,23 @@ function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTML
 	return null;
 }
 
-function getDatetime(media: HTMLElement) {
-	const time = media.closest(':has(time[datetime])')?.querySelector('time[datetime]');
+function getDatetime(media: HTMLElement): string;
+function getDatetime(takenAt: number): string;
+function getDatetime(value: HTMLElement | number) {
+	if (typeof value === 'number') {
+		return new Date(value).toISOString();
+	}
+
+	const time = value.closest(':has(time[datetime])')?.querySelector('time[datetime]');
 
 	return time?.getAttribute('datetime') ?? new Date().toISOString();
 }
 
 function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
 	const button = document.createElement('button');
+
+	console.log(button, BTN_CLASS_NAME);
+
 	button.classList.add(BTN_CLASS_NAME);
 	button.appendChild(makeDownloadIcon());
 	button.addEventListener('click', evt => void downloadHandler(evt, container, media, config));
@@ -280,9 +298,9 @@ function makeDownloadIcon(): SVGSVGElement {
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
 function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
-	const urlMatch = window.location.pathname.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
-	if (urlMatch) {
-		return urlMatch[ 2 ] ?? null;
+	const shortcode = findShortcodeInUrl();
+	if (shortcode) {
+		return shortcode;
 	}
 
 	const container = media.closest<HTMLElement>('article, [role="dialog"]');
@@ -298,6 +316,12 @@ function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
 	}
 
 	return null;
+}
+
+function findShortcodeInUrl() {
+	const urlMatch = window.location.pathname.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
+
+	return urlMatch?.at(2) ?? null;
 }
 
 function mapShortcodeToPostId(shortcode: string) {
@@ -412,4 +436,25 @@ async function getUserReels(userId: number) {
 	}
 
 	return getUserReelsResult.data;
+}
+
+// INIT ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+function init() {
+	scanPage();
+
+	const observer = new MutationObserver(() => {
+		clearTimeout(debounceTimer);
+		debounceTimer = setTimeout(scanPage, 300);
+	});
+
+	observer.observe(document.body, { childList: true, subtree: true });
+}
+
+if (document.readyState === 'loading') {
+	document.addEventListener('DOMContentLoaded', init);
+} else {
+	init();
 }
