@@ -29,6 +29,8 @@ function getConfig() {
 		config.type = 'post';
 	} else if (pathname.includes('/reel/')) {
 		config.type = 'reel';
+	} else if (pathname.includes('/stories/')) {
+		config.type = 'stories';
 	}
 
 	// if (pathname.startsWith('/reels/')) {
@@ -68,15 +70,6 @@ function processMedia(media: MediaElement, config: Config) {
 	}
 
 	addDownloadButton(media, config);
-
-	// const relativeAncestor = findRelativeAncestor(container, media);
-	// if (relativeAncestor) {
-	// 	relativeAncestor.appendChild(makeDownloadButton(container, media, config));
-	// } else {
-	// 	container.style.setProperty('position', 'relative');
-	// 	container.appendChild(makeDownloadButton(container, media, config));
-	// }
-
 	media.setAttribute(PROCESSED_ATTR, '1');
 }
 
@@ -98,9 +91,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 
 	const shortcode = findShortcode(media);
 	if (!shortcode) {
-		void downloadRawMedia(media, config.username);
-
-		return;
+		return void downloadRawMedia(media, config.username);
 	}
 
 	const mediaInfo = await getMediaInfo(shortcode);
@@ -128,7 +119,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 		return download(mediaInfo.image, mediaInfo.username, getDatetime(media));
 	}
 
-	return logError('Could not find media item url');
+	logError('Could not find media item url');
 }
 
 function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
@@ -144,26 +135,10 @@ function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
 		return downloadByShortcode(media, anchor.href);
 	}
 
-	return downloadFromCarouselOnHomeFeed(root, media, anchor.href);
+	return downloadFromHomeFeedCarousel(root, media, anchor.href);
 }
 
-function downloadFromPost(media: MediaElement) {
-	const listElement = media.closest('li');
-	if (!listElement) {
-		return downloadByShortcode(media);
-	}
-
-	return downloadFromCarouselOnPost(media);
-}
-
-async function downloadFromCarouselOnPost(media: MediaElement, url?: string) {
-	const searchParams = new URL(window.location.href).searchParams;
-	const index = searchParams.get('img_index');
-
-	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
-}
-
-async function downloadFromCarouselOnHomeFeed(root: HTMLElement, media: MediaElement, url?: string) {
+async function downloadFromHomeFeedCarousel(root: HTMLElement, media: MediaElement, url?: string) {
 	const step = root.querySelector('button[aria-current="step"]');
 	if (!step) {
 		return logError('Could not find carousel step');
@@ -172,6 +147,22 @@ async function downloadFromCarouselOnHomeFeed(root: HTMLElement, media: MediaEle
 	const index = Array.from(step.parentElement!.children).indexOf(step);
 
 	return downloadByShortcode(media, url, index);
+}
+
+function downloadFromPost(media: MediaElement) {
+	const listElement = media.closest('li');
+	if (!listElement) {
+		return downloadByShortcode(media);
+	}
+
+	return downloadFromPostCarousel(media);
+}
+
+async function downloadFromPostCarousel(media: MediaElement, url?: string) {
+	const searchParams = new URL(window.location.href).searchParams;
+	const index = searchParams.get('img_index');
+
+	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
 }
 
 async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
