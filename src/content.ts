@@ -321,7 +321,7 @@ function findUsernameInUrl() {
 	}
 }
 
-// DOM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// DOWNLOAD BUTTON /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function addDownloadButton(media: MediaElement, config: Config) {
 	if (config.type === 'home-feed') {
@@ -335,45 +335,26 @@ function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
 		return;
 	}
 
-	let buttonParent: HTMLElement | null = null;
-	if (media instanceof HTMLVideoElement) {
+	let buttonParent: HTMLElement | null;
+	const listItem = media.closest('li');
+	if (listItem) {
+		if (media instanceof HTMLVideoElement) {
+			buttonParent = findFirstRelativeDescendant(listItem);
+		} else {
+			buttonParent = findFirstRelativeAncestor(media, listItem);
+		}
+	} else if (media instanceof HTMLVideoElement) {
 		buttonParent = root.querySelector('div:has(> a[href^="/reels/"])');
-		console.log('video', buttonParent);
-	} else if (media.closest('li')) {
-		buttonParent = findRelativeAncestor(media.closest('li') as HTMLLIElement, media);
-		console.log('carousel', buttonParent);
 	} else {
-		buttonParent = findRelativeAncestor(root, media);
-		console.log('default', buttonParent);
+		buttonParent = findFirstRelativeAncestor(media, root);
 	}
 
 	if (!buttonParent) {
 		buttonParent = root;
-		console.log('fallback', buttonParent);
 	}
 
 	buttonParent.style.position = 'relative';
 	buttonParent.appendChild(makeDownloadButton(root, media, config));
-}
-
-function findRelativeAncestor(root: HTMLElement, media: MediaElement) {
-	if (media instanceof HTMLVideoElement) {
-		return null;
-		// return root.querySelector('[aria-label="Video player"]');
-	}
-
-	let current = media.parentElement;
-	while (current) {
-		if (getComputedStyle(current).position === 'relative') {
-			return current;
-		} else if (current === root) {
-			return current;
-		}
-
-		current = current.parentElement;
-	}
-
-	return null;
 }
 
 function getDatetime(media: HTMLElement): string;
@@ -558,6 +539,33 @@ async function getUserReels(userId: number) {
 	}
 
 	return getUserReelsResult.data;
+}
+
+// DOM TRAVERSING //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function findFirstRelativeAncestor(from: HTMLElement, root: HTMLElement) {
+	let current = from.parentElement;
+	while (current) {
+		if (getComputedStyle(current).position === 'relative') {
+			return current;
+		} else if (current === root) {
+			return current;
+		}
+
+		current = current.parentElement;
+	}
+
+	return null;
+}
+
+function findFirstRelativeDescendant(root: HTMLElement) {
+	for (const el of root.querySelectorAll<HTMLElement>('*')) {
+		if (getComputedStyle(el).position === 'relative') {
+			return el;
+		}
+	}
+
+	return null;
 }
 
 // INIT ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
