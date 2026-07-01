@@ -5,31 +5,39 @@ const PROCESSED_ATTR = 'data-ig-dl-processed';
 
 type Config = {
 	containers: Array<string>
+	downloadButtonContainerSelector?: string
 	selectors: Array<string>
+	type?: 'home-feed' | 'reels' | 'reel' | 'stories'
 	username?: string
 	usernameSelector?: string
-	type: 'home-feed' | 'reels' | 'stories'
 };
 
 function getConfig() {
 	const pathname = window.location.pathname;
 
-	// console.log(pathname);
+	// console.debug(pathname, (/\/reel\/([\w-]+)\//).test(pathname));
 
 	const config: Config = {
 		containers: [],
 		selectors: [],
 		username: findUsernameInUrl(),
-		type: 'home-feed',
 	};
 
-	// console.log(config.username);
+	// console.debug(config.username);
 
-	if (pathname === '/' || pathname.startsWith('/p/')) {
+	if (pathname === '/') {
 		config.containers.push('article');
+		config.downloadButtonContainerSelector = 'div:has(> a[href^="/reels/"])';
 		config.selectors.push('article img[alt^="Photo"]');
 		config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
+		config.type = 'home-feed';
 	}
+
+	// if (pathname === '/' || pathname.startsWith('/p/')) {
+	// 	config.containers.push('article');
+	// 	config.selectors.push('article img[alt^="Photo"]');
+	// 	config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
+	// }
 
 	if (pathname.startsWith('/p/')) {
 		config.containers.push('main > div > div');
@@ -42,6 +50,12 @@ function getConfig() {
 		config.selectors.push('main > div > div video');
 		config.usernameSelector = 'a[href$="/reels/"]';
 		config.type = 'reels';
+	} else if ((/\/reel\/([\w-]+)\//).test(pathname)) {
+		console.log('REEL');
+
+		config.containers.push('article');
+		config.selectors.push('article video');
+		config.type = 'reel';
 	}
 
 	if (pathname.startsWith('/stories/')) {
@@ -64,7 +78,7 @@ function scanPage() {
 	media.forEach(m => processMedia(m, config));
 }
 
-function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config) {
+function processMedia(media: MediaElement, config: Config) {
 	if (media.hasAttribute(PROCESSED_ATTR)) {
 		return;
 	}
@@ -76,25 +90,29 @@ function processMedia(media: HTMLImageElement | HTMLVideoElement, config: Config
 		return;
 	}
 
-	const relativeAncestor = findRelativeAncestor(container, media);
-	if (relativeAncestor) {
-		relativeAncestor.appendChild(makeDownloadButton(container, media, config));
-	} else {
-		container.style.setProperty('position', 'relative');
-		container.appendChild(makeDownloadButton(container, media, config));
-	}
+	addDownloadButton(media, config);
+
+	// const relativeAncestor = findRelativeAncestor(container, media);
+	// if (relativeAncestor) {
+	// 	relativeAncestor.appendChild(makeDownloadButton(container, media, config));
+	// } else {
+	// 	container.style.setProperty('position', 'relative');
+	// 	container.appendChild(makeDownloadButton(container, media, config));
+	// }
 
 	media.setAttribute(PROCESSED_ATTR, '1');
 }
 
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-async function downloadHandler(evt: PointerEvent, container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
+async function downloadHandler(evt: PointerEvent, container: HTMLElement, media: MediaElement, config: Config) {
 	evt.preventDefault();
 	evt.stopPropagation();
 
-	if (config.type === 'reels') {
-		return downloadReels(config);
+	if (config.type === 'home-feed') {
+		return downloadFromHomeFeed(media, container);
+	} else if (config.type === 'reels' || config.type === 'reel') {
+		return downloadReel();
 	} else if (config.type === 'stories') {
 		return downloadStory(config);
 	}
@@ -138,9 +156,76 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 	console.error('[ig-dl]', 'Could not find media item url');
 }
 
-async function downloadReels(config: Config) {
-	console.log(config);
+function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
+	const anchor = root.querySelector<HTMLAnchorElement>('a:has(time)');
+	if (!anchor) {
+		console.warn('[ig-dl]', 'Could not find anchor');
 
+		return;
+	}
+
+	const listElement = media.closest('li');
+	if (!listElement) {
+		return downloadByShortcode(media, anchor.href);
+	}
+
+	return downloadFromCarousel(root, media, anchor.href);
+}
+
+async function downloadFromCarousel(root: HTMLElement, media: MediaElement, url: string) {
+	const step = root.querySelector('button[aria-current="step"]');
+	if (!step) {
+		console.error('[ig-dl]', 'Could not find carousel step');
+
+		return;
+	}
+
+	const index = Array.from(step.parentElement!.children).indexOf(step);
+
+	return downloadByShortcode(media, url, index);
+}
+
+async function downloadByShortcode(media: MediaElement, url: string, index?: number) {
+	const shortcode = findShortcodeInUrl(url);
+	if (!shortcode) {
+		console.error('[ig-dl]', 'Could not find shortcode in url');
+
+		return;
+	}
+
+	const mediaInfo = await getMediaInfo(shortcode);
+	let urls: Pick<MediaInfoResponse, 'image' | 'video'> | undefined;
+
+	if (typeof index !== 'undefined') {
+		urls = mediaInfo.carousel_media?.at(index);
+	} else {
+		urls = mediaInfo;
+	}
+
+	if (!urls) {
+		console.error('[ig-dl]', 'Could not find media item url');
+
+		return;
+	}
+
+	if (media instanceof HTMLImageElement) {
+		if (!urls.image) {
+			console.error('[ig-dl]', 'Expected to have an image URL within the mediaInfo response');
+
+			return;
+		}
+
+		return download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at));
+	} else if (!urls.video) {
+		console.error('[ig-dl]', 'Expected to have a video URL within the mediaInfo response');
+
+		return;
+	}
+
+	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
+}
+
+async function downloadReel() {
 	const shortcode = findShortcodeInUrl();
 	if (!shortcode) {
 		console.error('[ig-dl]', 'Could not find shortcode in url');
@@ -201,7 +286,7 @@ async function download(url: string, username: string, datetime: string) {
 	});
 }
 
-async function downloadRawMedia(media: HTMLImageElement | HTMLVideoElement, username: string = 'unknown') {
+async function downloadRawMedia(media: MediaElement, username: string = 'unknown') {
 	if (media instanceof HTMLVideoElement) {
 		console.warn('Download of raw video not supported');
 
@@ -238,13 +323,46 @@ function findUsernameInUrl() {
 
 // DOM /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function findRelativeAncestor(root: HTMLElement, source: HTMLImageElement | HTMLVideoElement) {
-	if (source instanceof HTMLVideoElement) {
+function addDownloadButton(media: MediaElement, config: Config) {
+	if (config.type === 'home-feed') {
+		return addHomeFeedDownloadButton(media, config);
+	}
+}
+
+function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
+	const root = media.closest('article');
+	if (!root) {
+		return;
+	}
+
+	let buttonParent: HTMLElement | null = null;
+	if (media instanceof HTMLVideoElement) {
+		buttonParent = root.querySelector('div:has(> a[href^="/reels/"])');
+		console.log('video', buttonParent);
+	} else if (media.closest('li')) {
+		buttonParent = findRelativeAncestor(media.closest('li') as HTMLLIElement, media);
+		console.log('carousel', buttonParent);
+	} else {
+		buttonParent = findRelativeAncestor(root, media);
+		console.log('default', buttonParent);
+	}
+
+	if (!buttonParent) {
+		buttonParent = root;
+		console.log('fallback', buttonParent);
+	}
+
+	buttonParent.style.position = 'relative';
+	buttonParent.appendChild(makeDownloadButton(root, media, config));
+}
+
+function findRelativeAncestor(root: HTMLElement, media: MediaElement) {
+	if (media instanceof HTMLVideoElement) {
 		return null;
 		// return root.querySelector('[aria-label="Video player"]');
 	}
 
-	let current = source.parentElement;
+	let current = media.parentElement;
 	while (current) {
 		if (getComputedStyle(current).position === 'relative') {
 			return current;
@@ -270,12 +388,16 @@ function getDatetime(value: HTMLElement | number) {
 	return time?.getAttribute('datetime') ?? new Date().toISOString();
 }
 
-function makeDownloadButton(container: HTMLElement, media: HTMLImageElement | HTMLVideoElement, config: Config) {
+function makeDownloadButton(container: HTMLElement, media: MediaElement, config: Config) {
 	const button = document.createElement('button');
 
-	console.log(button, BTN_CLASS_NAME);
+	// console.debug(button, BTN_CLASS_NAME);
 
 	button.classList.add(BTN_CLASS_NAME);
+	if (config.type) {
+		button.classList.add(config.type);
+	}
+
 	button.appendChild(makeDownloadIcon());
 	button.addEventListener('click', evt => void downloadHandler(evt, container, media, config));
 
@@ -297,7 +419,7 @@ function makeDownloadIcon(): SVGSVGElement {
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
+function findShortcode(media: MediaElement) {
 	const shortcode = findShortcodeInUrl();
 	if (shortcode) {
 		return shortcode;
@@ -318,8 +440,8 @@ function findShortcode(media: HTMLImageElement | HTMLVideoElement) {
 	return null;
 }
 
-function findShortcodeInUrl() {
-	const urlMatch = window.location.pathname.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
+function findShortcodeInUrl(url: string = window.location.href) {
+	const urlMatch = url.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
 
 	return urlMatch?.at(2) ?? null;
 }
@@ -458,3 +580,7 @@ if (document.readyState === 'loading') {
 } else {
 	init();
 }
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type MediaElement = HTMLImageElement | HTMLVideoElement;
