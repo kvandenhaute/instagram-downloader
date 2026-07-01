@@ -1,10 +1,11 @@
 import { Result } from './types';
 
+const DEBUG = true;
+
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
 type Config = {
-	containers: Array<string>
 	downloadButtonContainerSelector?: string
 	selectors: Array<string>
 	type?: 'home-feed' | 'post' | 'reels' | 'reel' | 'stories'
@@ -14,27 +15,19 @@ type Config = {
 
 function getConfig() {
 	const pathname = window.location.pathname;
-
-	// console.debug(pathname, (/\/reel\/([\w-]+)\//).test(pathname));
-
 	const config: Config = {
-		containers: [],
 		selectors: [],
 		username: findUsernameInUrl(),
 	};
 
-	// console.debug(config.username);
-
 	if (pathname === '/') {
-		config.containers.push('article');
 		config.downloadButtonContainerSelector = 'div:has(> a[href^="/reels/"])';
 		config.selectors.push('article img[alt^="Photo"]');
 		config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
 		config.type = 'home-feed';
-	} else if (pathname.startsWith('/p/')) {
-		config.containers.push('main > div > div > div');
-		config.selectors.push('main > div > div li img');
-		config.selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
+	} else if (pathname.includes('/p/')) {
+		config.selectors.push('main > div > div:first-child > div img');
+		config.selectors.push('main > div:first-child > div video[src^="blob:https://www.instagram.com"]');
 		config.type = 'post';
 	}
 
@@ -66,20 +59,14 @@ function scanPage() {
 		return;
 	}
 
-	const media = document.querySelectorAll<HTMLImageElement>(config.selectors.join(','));
+	// const media = document.querySelectorAll<HTMLImageElement>(config.selectors.join(','));
+	const media = document.querySelectorAll<HTMLImageElement>('img,video');
 
 	media.forEach(m => processMedia(m, config));
 }
 
 function processMedia(media: MediaElement, config: Config) {
 	if (media.hasAttribute(PROCESSED_ATTR)) {
-		return;
-	}
-
-	const container = media.closest<HTMLElement>(config.containers.join(','));
-	if (!container) {
-		console.warn('NO CONTAINER', media, config.containers);
-
 		return;
 	}
 
@@ -107,7 +94,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 	} else if (config.type === 'post') {
 		return downloadFromPost(media);
 	} else if (config.type === 'reels' || config.type === 'reel') {
-		return downloadReel();
+		return downloadByShortcode(media);
 	} else if (config.type === 'stories') {
 		return downloadStory(config);
 	}
@@ -126,9 +113,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 		const index = Array.from(step.parentElement!.children).indexOf(step);
 		const entry = mediaInfo.carousel_media?.at(index);
 		if (!entry) {
-			console.error('[ig-dl]', 'Could not find media entry');
-
-			return;
+			return logError('Could not find media entry');
 		}
 
 		if (media instanceof HTMLVideoElement && entry.video) {
@@ -137,9 +122,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 			return download(entry.image, mediaInfo.username, getDatetime(media));
 		}
 
-		console.error('[ig-dl]', 'Could not find media entry url');
-
-		return;
+		return logError('Could not find media entry url');
 	}
 
 	if (media instanceof HTMLVideoElement && mediaInfo.video) {
@@ -148,7 +131,7 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 		return download(mediaInfo.image, mediaInfo.username, getDatetime(media));
 	}
 
-	console.error('[ig-dl]', 'Could not find media item url');
+	return logError('Could not find media item url');
 }
 
 function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
@@ -186,9 +169,7 @@ async function downloadFromCarouselOnPost(media: MediaElement, url?: string) {
 async function downloadFromCarouselOnHomeFeed(root: HTMLElement, media: MediaElement, url?: string) {
 	const step = root.querySelector('button[aria-current="step"]');
 	if (!step) {
-		console.error('[ig-dl]', 'Could not find carousel step');
-
-		return;
+		return logError('Could not find carousel step');
 	}
 
 	const index = Array.from(step.parentElement!.children).indexOf(step);
@@ -199,9 +180,7 @@ async function downloadFromCarouselOnHomeFeed(root: HTMLElement, media: MediaEle
 async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
 	const shortcode = findShortcodeInUrl(url);
 	if (!shortcode) {
-		console.error('[ig-dl]', 'Could not find shortcode in url');
-
-		return;
+		return logError('Could not find shortcode in url');
 	}
 
 	const mediaInfo = await getMediaInfo(shortcode);
@@ -214,23 +193,17 @@ async function downloadByShortcode(media: MediaElement, url?: string, index?: nu
 	}
 
 	if (!urls) {
-		console.error('[ig-dl]', 'Could not find media item url');
-
-		return;
+		return logError('Could not find media item url');
 	}
 
 	if (media instanceof HTMLImageElement) {
 		if (!urls.image) {
-			console.error('[ig-dl]', 'Expected to have an image URL within the mediaInfo response');
-
-			return;
+			return logError('Expected to have an image URL within the mediaInfo response');
 		}
 
 		return download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at));
 	} else if (!urls.video) {
-		console.error('[ig-dl]', 'Expected to have a video URL within the mediaInfo response');
-
-		return;
+		return logError('Expected to have a video URL within the mediaInfo response');
 	}
 
 	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
@@ -239,16 +212,12 @@ async function downloadByShortcode(media: MediaElement, url?: string, index?: nu
 async function downloadReel() {
 	const shortcode = findShortcodeInUrl();
 	if (!shortcode) {
-		console.error('[ig-dl]', 'Could not find shortcode in url');
-
-		return;
+		return logError('Could not find shortcode in url');
 	}
 
 	const mediaInfo = await getMediaInfo(shortcode);
 	if (!mediaInfo.video) {
-		console.error('[ig-dl]', 'Expected to have a video URL within the mediaInfo response');
-
-		return;
+		return logError('Expected to have a video URL within the mediaInfo response');
 	}
 
 	return download(mediaInfo.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
@@ -256,9 +225,7 @@ async function downloadReel() {
 
 async function downloadStory(config: Config) {
 	if (!config.username) {
-		console.error('[ig-dl]', 'No username in config');
-
-		return;
+		return logError('No username in config');
 	}
 
 	const match = window.location.href.match(/\/stories\/[^/]+\/(\d+)/);
@@ -270,9 +237,7 @@ async function downloadStory(config: Config) {
 	if (!storyId) {
 		const firstReel = reels.reels.at(0);
 		if (!firstReel) {
-			console.error('[ig-dl]', 'No reels found');
-
-			return;
+			return logError('No reels found');
 		}
 
 		return download(firstReel.url, config.username, getDatetime(firstReel.taken_at));
@@ -280,8 +245,8 @@ async function downloadStory(config: Config) {
 
 	const reel = reels.reels_by_pk[ storyId.toString() ];
 	if (!reel) {
-		console.debug('[ig-dl]', reels);
-		console.error('[ig-dl]', `No reel found for story ${storyId}`);
+		logDebug(reels);
+		logError(`No reel found for story ${storyId}`);
 
 		return;
 	}
@@ -343,8 +308,10 @@ function addDownloadButton(media: MediaElement, config: Config) {
 }
 
 function addPostDownloadButton(media: MediaElement, config: Config) {
-	const root = document.querySelector<HTMLElement>('main > div > div > div');
-	if (!root) {
+	const root = document.querySelector<HTMLElement>('main > div > div:first-child > div > div');
+	if (!root || !root.contains(media)) {
+		logDebug('No root found for media in post');
+
 		return;
 	}
 
@@ -360,10 +327,12 @@ function addPostDownloadButton(media: MediaElement, config: Config) {
 		buttonParent = root.querySelector('div:has(> a[href^="/reels/"])');
 	} else {
 		buttonParent = findFirstRelativeAncestor(media, root);
+		logDebug(buttonParent);
 	}
 
 	if (!buttonParent) {
 		buttonParent = root;
+		logDebug('fallback', buttonParent);
 	}
 
 	buttonParent.style.position = 'relative';
@@ -412,9 +381,6 @@ function getDatetime(value: HTMLElement | number) {
 
 function makeDownloadButton(container: HTMLElement, media: MediaElement, config: Config) {
 	const button = document.createElement('button');
-
-	// console.debug(button, BTN_CLASS_NAME);
-
 	button.classList.add(BTN_CLASS_NAME);
 	if (config.type) {
 		button.classList.add(config.type);
@@ -607,6 +573,16 @@ function findFirstRelativeDescendant(root: HTMLElement) {
 	}
 
 	return null;
+}
+
+// HELPERS /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function logDebug(...data: Array<unknown>) {
+	DEBUG && console.debug('[ig-dl]', ...data);
+}
+
+function logError(...data: Array<unknown>) {
+	console.error('[ig-dl]', ...data);
 }
 
 // INIT ////////////////////////////////////////////////////////////////////////////////////////////////////////////////

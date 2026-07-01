@@ -38,6 +38,8 @@ export default tseslint.config(
         '@stylistic/padding-line-between-statements': ['error', { blankLine: 'always', prev: '*', next: 'return' }],
         '@stylistic/semi-style': 'error',
         '@stylistic/wrap-regex': 'error',
+
+        '@typescript-eslint/no-unused-expressions': 'off',
     },
   },
 );
