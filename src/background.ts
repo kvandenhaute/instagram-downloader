@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
 		if (message.type === 'download') {
 			chrome.downloads.download(
-				{ url: message.url, filename: message.filename, saveAs: false },
+				{ url: message.url, filename: message.filename, saveAs: false, conflictAction: 'overwrite' },
 				() => sendResponse({ success: !chrome.runtime.lastError }),
 			);
 

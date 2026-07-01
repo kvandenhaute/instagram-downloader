@@ -22,13 +22,13 @@ function getConfig() {
 
 	if (pathname === '/') {
 		config.downloadButtonContainerSelector = 'div:has(> a[href^="/reels/"])';
-		config.selectors.push('article img[alt^="Photo"]');
-		config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
+		// config.selectors.push('article img[alt^="Photo"]');
+		// config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
 		config.type = 'home-feed';
 	} else if (pathname.includes('/p/')) {
-		config.selectors.push('main > div > div:first-child > div img');
-		config.selectors.push('main > div:first-child > div video[src^="blob:https://www.instagram.com"]');
 		config.type = 'post';
+	} else if (pathname.includes('/reel/')) {
+		config.type = 'reel';
 	}
 
 	// if (pathname.startsWith('/reels/')) {
@@ -55,9 +55,6 @@ function getConfig() {
 
 function scanPage() {
 	const config = getConfig();
-	if (config.selectors.length === 0) {
-		return;
-	}
 
 	// const media = document.querySelectorAll<HTMLImageElement>(config.selectors.join(','));
 	const media = document.querySelectorAll<HTMLImageElement>('img,video');
@@ -206,21 +203,11 @@ async function downloadByShortcode(media: MediaElement, url?: string, index?: nu
 		return logError('Expected to have a video URL within the mediaInfo response');
 	}
 
+	if (urls.image) {
+		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), true);
+	}
+
 	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
-}
-
-async function downloadReel() {
-	const shortcode = findShortcodeInUrl();
-	if (!shortcode) {
-		return logError('Could not find shortcode in url');
-	}
-
-	const mediaInfo = await getMediaInfo(shortcode);
-	if (!mediaInfo.video) {
-		return logError('Expected to have a video URL within the mediaInfo response');
-	}
-
-	return download(mediaInfo.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
 }
 
 async function downloadStory(config: Config) {
@@ -254,11 +241,11 @@ async function downloadStory(config: Config) {
 	return download(reel.url, config.username, getDatetime(reel.taken_at));
 }
 
-async function download(url: string, username: string, datetime: string) {
+async function download(url: string, username: string, datetime: string, isPoster?: boolean) {
 	return sendMessage({
 		type: 'download',
 		url,
-		filename: makeFilename(url, username, datetime),
+		filename: makeFilename(url, username, datetime, isPoster),
 	});
 }
 
@@ -282,10 +269,15 @@ async function downloadRawImage(img: HTMLImageElement, username: string) {
 	});
 }
 
-function makeFilename(url: string, username: string, datetime: string) {
+function makeFilename(url: string, username: string, datetime: string, isPoster?: boolean) {
+	const basename = `instagram_${username}__${formatDatetimeToFilenamePart(datetime)}`;
 	const ext = getFileExtension(url);
 
-	return `instagram_${username}__${formatDatetimeToFilenamePart(datetime)}.${ext}`;
+	if (isPoster) {
+		return `${basename}_poster.${ext}`;
+	}
+
+	return `${basename}.${ext}`;
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -300,43 +292,31 @@ function findUsernameInUrl() {
 // DOWNLOAD BUTTON /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function addDownloadButton(media: MediaElement, config: Config) {
-	if (config.type === 'home-feed') {
-		return addHomeFeedDownloadButton(media, config);
-	} else if (config.type === 'post') {
-		return addPostDownloadButton(media, config);
+	switch (config.type) {
+		case 'home-feed':
+			addHomeFeedDownloadButton(media, config);
+			break;
+		case 'post':
+			addPostDownloadButton(media, config);
+			break;
+		case 'reel':
+			addReelDownloadButton(media, config);
+			break;
 	}
 }
 
 function addPostDownloadButton(media: MediaElement, config: Config) {
-	const root = document.querySelector<HTMLElement>('main > div > div:first-child > div > div');
+	const root = queryFirst<HTMLElement>(document, '[role="dialog"] article > div > div:first-child', 'main > div > div:first-child > div > div');
 	if (!root || !root.contains(media)) {
-		logDebug('No root found for media in post');
-
-		return;
+		return logDebug('No root found for media in post');
 	}
 
-	let buttonParent: HTMLElement | null;
-	const listItem = media.closest('li');
-	if (listItem) {
-		if (media instanceof HTMLVideoElement) {
-			buttonParent = findFirstRelativeDescendant(listItem);
-		} else {
-			buttonParent = findFirstRelativeAncestor(media, listItem);
-		}
-	} else if (media instanceof HTMLVideoElement) {
-		buttonParent = root.querySelector('div:has(> a[href^="/reels/"])');
-	} else {
-		buttonParent = findFirstRelativeAncestor(media, root);
-		logDebug(buttonParent);
-	}
+	return getDownloadButtonParent(root, media)
+		.appendChild(makeDownloadButton(root, media, config));
+}
 
-	if (!buttonParent) {
-		buttonParent = root;
-		logDebug('fallback', buttonParent);
-	}
-
-	buttonParent.style.position = 'relative';
-	buttonParent.appendChild(makeDownloadButton(root, media, config));
+function addReelDownloadButton(media: MediaElement, config: Config) {
+	return addPostDownloadButton(media, config);
 }
 
 function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
@@ -345,6 +325,11 @@ function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
 		return;
 	}
 
+	return getDownloadButtonParent(root, media)
+		.appendChild(makeDownloadButton(root, media, config));
+}
+
+function getDownloadButtonParent(root: HTMLElement, media: MediaElement) {
 	let buttonParent: HTMLElement | null;
 	const listItem = media.closest('li');
 	if (listItem) {
@@ -364,7 +349,8 @@ function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
 	}
 
 	buttonParent.style.position = 'relative';
-	buttonParent.appendChild(makeDownloadButton(root, media, config));
+
+	return buttonParent;
 }
 
 function getDatetime(media: HTMLElement): string;
@@ -568,6 +554,17 @@ function findFirstRelativeAncestor(from: HTMLElement, root: HTMLElement) {
 function findFirstRelativeDescendant(root: HTMLElement) {
 	for (const el of root.querySelectorAll<HTMLElement>('*')) {
 		if (getComputedStyle(el).position === 'relative') {
+			return el;
+		}
+	}
+
+	return null;
+}
+
+function queryFirst<T extends Element>(root: ParentNode, ...selectors: [string, ...Array<string>]): T | null {
+	for (const selector of selectors) {
+		const el = root.querySelector<T>(selector);
+		if (el) {
 			return el;
 		}
 	}
