@@ -7,7 +7,7 @@ type Config = {
 	containers: Array<string>
 	downloadButtonContainerSelector?: string
 	selectors: Array<string>
-	type?: 'home-feed' | 'reels' | 'reel' | 'stories'
+	type?: 'home-feed' | 'post' | 'reels' | 'reel' | 'stories'
 	username?: string
 	usernameSelector?: string
 };
@@ -31,38 +31,31 @@ function getConfig() {
 		config.selectors.push('article img[alt^="Photo"]');
 		config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
 		config.type = 'home-feed';
-	}
-
-	// if (pathname === '/' || pathname.startsWith('/p/')) {
-	// 	config.containers.push('article');
-	// 	config.selectors.push('article img[alt^="Photo"]');
-	// 	config.selectors.push('article video[src^="blob:https://www.instagram.com"]');
-	// }
-
-	if (pathname.startsWith('/p/')) {
-		config.containers.push('main > div > div');
+	} else if (pathname.startsWith('/p/')) {
+		config.containers.push('main > div > div > div');
 		config.selectors.push('main > div > div li img');
 		config.selectors.push('main > div > div video[src^="blob:https://www.instagram.com"]');
+		config.type = 'post';
 	}
 
-	if (pathname.startsWith('/reels/')) {
-		config.containers.push('main > div > div:has(video)');
-		config.selectors.push('main > div > div video');
-		config.usernameSelector = 'a[href$="/reels/"]';
-		config.type = 'reels';
-	} else if ((/\/reel\/([\w-]+)\//).test(pathname)) {
-		console.log('REEL');
-
-		config.containers.push('article');
-		config.selectors.push('article video');
-		config.type = 'reel';
-	}
-
-	if (pathname.startsWith('/stories/')) {
-		config.containers.push('section');
-		config.selectors.push('section img', 'section video');
-		config.type = 'stories';
-	}
+	// if (pathname.startsWith('/reels/')) {
+	// 	config.containers.push('main > div > div:has(video)');
+	// 	config.selectors.push('main > div > div video');
+	// 	config.usernameSelector = 'a[href$="/reels/"]';
+	// 	config.type = 'reels';
+	// } else if ((/\/reel\/([\w-]+)\//).test(pathname)) {
+	// 	console.log('REEL');
+	//
+	// 	config.containers.push('article');
+	// 	config.selectors.push('article video');
+	// 	config.type = 'reel';
+	// }
+	//
+	// if (pathname.startsWith('/stories/')) {
+	// 	config.containers.push('section');
+	// 	config.selectors.push('section img', 'section video');
+	// 	config.type = 'stories';
+	// }
 
 	return config;
 }
@@ -111,6 +104,8 @@ async function downloadHandler(evt: PointerEvent, container: HTMLElement, media:
 
 	if (config.type === 'home-feed') {
 		return downloadFromHomeFeed(media, container);
+	} else if (config.type === 'post') {
+		return downloadFromPost(media);
 	} else if (config.type === 'reels' || config.type === 'reel') {
 		return downloadReel();
 	} else if (config.type === 'stories') {
@@ -169,10 +164,26 @@ function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
 		return downloadByShortcode(media, anchor.href);
 	}
 
-	return downloadFromCarousel(root, media, anchor.href);
+	return downloadFromCarouselOnHomeFeed(root, media, anchor.href);
 }
 
-async function downloadFromCarousel(root: HTMLElement, media: MediaElement, url: string) {
+function downloadFromPost(media: MediaElement) {
+	const listElement = media.closest('li');
+	if (!listElement) {
+		return downloadByShortcode(media);
+	}
+
+	return downloadFromCarouselOnPost(media);
+}
+
+async function downloadFromCarouselOnPost(media: MediaElement, url?: string) {
+	const searchParams = new URL(window.location.href).searchParams;
+	const index = searchParams.get('img_index');
+
+	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
+}
+
+async function downloadFromCarouselOnHomeFeed(root: HTMLElement, media: MediaElement, url?: string) {
 	const step = root.querySelector('button[aria-current="step"]');
 	if (!step) {
 		console.error('[ig-dl]', 'Could not find carousel step');
@@ -185,7 +196,7 @@ async function downloadFromCarousel(root: HTMLElement, media: MediaElement, url:
 	return downloadByShortcode(media, url, index);
 }
 
-async function downloadByShortcode(media: MediaElement, url: string, index?: number) {
+async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
 	const shortcode = findShortcodeInUrl(url);
 	if (!shortcode) {
 		console.error('[ig-dl]', 'Could not find shortcode in url');
@@ -326,7 +337,37 @@ function findUsernameInUrl() {
 function addDownloadButton(media: MediaElement, config: Config) {
 	if (config.type === 'home-feed') {
 		return addHomeFeedDownloadButton(media, config);
+	} else if (config.type === 'post') {
+		return addPostDownloadButton(media, config);
 	}
+}
+
+function addPostDownloadButton(media: MediaElement, config: Config) {
+	const root = document.querySelector<HTMLElement>('main > div > div > div');
+	if (!root) {
+		return;
+	}
+
+	let buttonParent: HTMLElement | null;
+	const listItem = media.closest('li');
+	if (listItem) {
+		if (media instanceof HTMLVideoElement) {
+			buttonParent = findFirstRelativeDescendant(listItem);
+		} else {
+			buttonParent = findFirstRelativeAncestor(media, listItem);
+		}
+	} else if (media instanceof HTMLVideoElement) {
+		buttonParent = root.querySelector('div:has(> a[href^="/reels/"])');
+	} else {
+		buttonParent = findFirstRelativeAncestor(media, root);
+	}
+
+	if (!buttonParent) {
+		buttonParent = root;
+	}
+
+	buttonParent.style.position = 'relative';
+	buttonParent.appendChild(makeDownloadButton(root, media, config));
 }
 
 function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
