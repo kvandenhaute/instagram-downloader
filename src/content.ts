@@ -7,26 +7,6 @@ const PROCESSED_ATTR = 'data-ig-dl-processed';
 
 type PageType = 'highlights' | 'home-feed' | 'post' | 'reels' | 'reel' | 'stories';
 
-function getPageType(): PageType | null {
-	const pathname = window.location.pathname;
-
-	if (pathname === '/') {
-		return 'home-feed';
-	} else if (pathname.includes('/p/')) {
-		return 'post';
-	} else if (pathname.includes('/reel/')) {
-		return 'reel';
-	} else if (pathname.includes('/highlights/')) {
-		return 'highlights';
-	} else if (pathname.includes('/reels/')) {
-		return 'reels';
-	} else if (pathname.includes('/stories/')) {
-		return 'stories';
-	}
-
-	return null;
-}
-
 function scanPage() {
 	const pageType = getPageType();
 	if (!pageType) {
@@ -51,6 +31,129 @@ function processMedia(media: MediaElement, pageType: PageType) {
 
 	addDownloadButton(media, pageType);
 	media.setAttribute(PROCESSED_ATTR, '1');
+}
+
+// HIGHLIGHTS //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function addHighlightDownloadButton(media: MediaElement) {
+	const root = document.querySelector<HTMLElement>('section > div > div > div');
+	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
+		return;
+	}
+
+	root.dataset.igDl = media.src;
+
+	const downloadButton = makeDownloadButton('highlights');
+	downloadButton.addEventListener('click', evt => {
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		void downloadHighlightStory(root);
+	});
+
+	root.appendChild(downloadButton);
+}
+
+async function collectAllHighlights() {
+	let el: HTMLElement | null
+		= document.querySelector('a[href*="/stories/highlights/"]');
+	let container: HTMLElement | null = null;
+
+	while (el) {
+		if (getComputedStyle(el).overflowX === 'auto') {
+			container = el;
+			break;
+		}
+		el = el.parentElement;
+	}
+
+	if (!container) {
+		return [];
+	}
+
+	const collected = new Map<string, { id: string, title: string | undefined }>();
+	let retries = 0;
+
+	while (retries < 5) {
+		const countBefore = collected.size;
+
+		document.querySelectorAll<HTMLAnchorElement>('a[href*="/stories/highlights/"]')
+			.forEach(a => {
+				const match
+					= a.href.match(/\/stories\/highlights\/(\d+)\//);
+				if (match?.[ 1 ]) {
+					collected.set(match[ 1 ], {
+						id: match[ 1 ],
+						title:
+							a.querySelector('span')?.textContent?.trim(),
+					});
+				}
+			});
+
+		if (collected.size > countBefore) {
+			retries = 0;
+		} else {
+			retries++;
+		}
+
+		container.scrollLeft += 200;
+		await new Promise(resolve => setTimeout(resolve, 600));
+	}
+
+	return Array.from(collected.values());
+}
+
+async function downloadHighlightStory(root: HTMLElement) {
+	const match = window.location.href.match(/\/highlights\/(\d+)/);
+	const highlightId = match?.at(1);
+	if (!highlightId) {
+		return;
+	}
+
+	const index = findActiveHighlightIndex(root);
+	if (index === null) {
+		return;
+	}
+
+	const highlightReels = await getHighlightReels(highlightId);
+	const reel = highlightReels.reels.at(index);
+	if (!reel) {
+		return logError(`Could not find highlight reel at index ${index}`);
+	}
+
+	return download(reel.url, highlightReels.username, getDatetime(reel.taken_at));
+}
+
+function findActiveHighlightIndex(root: HTMLElement): number | null {
+	const isProgressBar = (el: Element) => {
+		const height = el.clientHeight || (el as HTMLElement).offsetHeight;
+		const width = el.clientWidth || (el as HTMLElement).offsetWidth;
+
+		return height > 0 && height < 5 && width > 150 && el.children.length > 0;
+	};
+
+	// const container = header ? Array.from(header.querySelectorAll('div')).find(isProgressBar) : Array.from(document.querySelectorAll('div')).find(isProgressBar);
+
+	const container = Array.from(root.querySelectorAll('div')).find(isProgressBar);
+
+	console.log({ container });
+
+	if (!container) {
+		return null;
+	}
+
+	const segments = Array.from(container.children);
+	let activeIndex = 0;
+	let maxChildren = 0;
+
+	for (let i = 0; i < segments.length; i++) {
+		if (segments[ i ].children.length > maxChildren) {
+			maxChildren = segments[ i ].children.length;
+			activeIndex = i;
+		}
+	}
+
+	return activeIndex;
 }
 
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -140,59 +243,6 @@ async function downloadFromPostCarousel(media: MediaElement, url?: string) {
 	const index = searchParams.get('img_index');
 
 	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
-}
-
-function findActiveHighlightIndex(root: HTMLElement): number | null {
-	const isProgressBar = (el: Element) => {
-		const height = el.clientHeight || (el as HTMLElement).offsetHeight;
-		const width = el.clientWidth || (el as HTMLElement).offsetWidth;
-
-		return height > 0 && height < 5 && width > 150 && el.children.length > 0;
-	};
-
-	// const container = header ? Array.from(header.querySelectorAll('div')).find(isProgressBar) : Array.from(document.querySelectorAll('div')).find(isProgressBar);
-
-	const container = Array.from(root.querySelectorAll('div')).find(isProgressBar);
-
-	console.log({ container });
-
-	if (!container) {
-		return null;
-	}
-
-	const segments = Array.from(container.children);
-	let activeIndex = 0;
-	let maxChildren = 0;
-
-	for (let i = 0; i < segments.length; i++) {
-		if (segments[ i ].children.length > maxChildren) {
-			maxChildren = segments[ i ].children.length;
-			activeIndex = i;
-		}
-	}
-
-	return activeIndex;
-}
-
-async function downloadHighlightStory(root: HTMLElement) {
-	const match = window.location.href.match(/\/highlights\/(\d+)/);
-	const highlightId = match?.at(1);
-	if (!highlightId) {
-		return;
-	}
-
-	const index = findActiveHighlightIndex(root);
-	if (index === null) {
-		return;
-	}
-
-	const highlightReels = await getHighlightReels(highlightId);
-	const reel = highlightReels.reels.at(index);
-	if (!reel) {
-		return logError(`Could not find highlight reel at index ${index}`);
-	}
-
-	return download(reel.url, highlightReels.username, getDatetime(reel.taken_at));
 }
 
 async function downloadStory() {
@@ -336,25 +386,6 @@ function addReelsDownloadButton(media: MediaElement, pageType: PageType) {
 		evt.stopPropagation();
 
 		void downloadFromPost(media);
-	});
-
-	root.appendChild(downloadButton);
-}
-
-function addHighlightDownloadButton(media: MediaElement) {
-	const root = document.querySelector<HTMLElement>('section > div > div > div');
-	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
-		return;
-	}
-
-	root.dataset.igDl = media.src;
-
-	const downloadButton = makeDownloadButton('highlights');
-	downloadButton.addEventListener('click', evt => {
-		evt.preventDefault();
-		evt.stopPropagation();
-
-		void downloadHighlightStory(root);
 	});
 
 	root.appendChild(downloadButton);
@@ -586,6 +617,26 @@ function queryFirst<T extends Element>(root: ParentNode, ...selectors: [string, 
 
 // HELPERS /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function getPageType(): PageType | null {
+	const pathname = window.location.pathname;
+
+	if (pathname === '/') {
+		return 'home-feed';
+	} else if (pathname.includes('/p/')) {
+		return 'post';
+	} else if (pathname.includes('/reel/')) {
+		return 'reel';
+	} else if (pathname.includes('/highlights/')) {
+		return 'highlights';
+	} else if (pathname.includes('/reels/')) {
+		return 'reels';
+	} else if (pathname.includes('/stories/')) {
+		return 'stories';
+	}
+
+	return null;
+}
+
 function isValidMedia(media: MediaElement) {
 	if (media instanceof HTMLImageElement && media.alt.endsWith('profile picture')) {
 		return false;
@@ -626,6 +677,10 @@ function init() {
 	});
 
 	observer.observe(document.body, { childList: true, subtree: true });
+
+	setTimeout(() => {
+		void collectAllHighlights().then(console.log);
+	}, 3000);
 }
 
 if (document.readyState === 'loading') {
