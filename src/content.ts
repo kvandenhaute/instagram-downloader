@@ -134,20 +134,12 @@ async function downloadAllHighlights() {
 		const title = highlight.title || highlight.id;
 
 		return pMap(reels.reels, async (reel, index) => {
-			if (index > 0) {
-				return;
-			}
-
 			const suffix = [
 				encodeURIComponent(title.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim()),
 				index.toString().padStart(3, '0'),
 			];
 
-			if (reel.poster) {
-				await download(reel.poster, reels.username, getDatetime(reel.taken_at), { suffix, isPoster: true });
-			}
-
-			return download(reel.url, reels.username, getDatetime(reel.taken_at), { suffix });
+			return downloadReel(reel, reels.username, { suffix });
 		}, { concurrency: 3 });
 	}, { concurrency: 3 });
 }
@@ -289,6 +281,16 @@ async function downloadFromPostCarousel(media: MediaElement, url?: string) {
 	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
 }
 
+async function downloadReel(reel: Reel, username: string, filenameOptions: FilenameOptions = {}) {
+	const datetime = getDatetime(reel.taken_at);
+
+	if (reel.poster) {
+		await download(reel.poster, username, datetime, { ...filenameOptions, isPoster: true });
+	}
+
+	return download(reel.url, username, datetime, filenameOptions);
+}
+
 async function downloadStory() {
 	const username = findUsernameInUrl();
 	if (!username) {
@@ -307,7 +309,7 @@ async function downloadStory() {
 			return logError('No reels found');
 		}
 
-		return download(firstReel.url, username, getDatetime(firstReel.taken_at));
+		return downloadReel(firstReel, username);
 	}
 
 	const reel = reels.reels_by_pk[ storyId.toString() ];
@@ -318,7 +320,7 @@ async function downloadStory() {
 		return;
 	}
 
-	return download(reel.url, username, getDatetime(reel.taken_at));
+	return downloadReel(reel, username);
 }
 
 async function download(url: string, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
@@ -605,9 +607,11 @@ async function getWebProfileInfo(username: string) {
 	return sendMessageResult.data;
 }
 
+type Reel = { poster?: string, taken_at: number, url: string };
+
 type HighlightReels = {
-	reels_by_pk: Record<string, { poster?: string, taken_at: number, url: string }>
-	reels: Array<{ poster?: string, taken_at: number, url: string }>
+	reels_by_pk: Record<string, Reel>
+	reels: Array<Reel>
 	username: string
 };
 
@@ -621,8 +625,8 @@ async function getHighlightReels(highlightId: string) {
 }
 
 type UserReelsResponse = {
-	reels_by_pk: Record<string, { poster?: string, taken_at: number, url: string }>
-	reels: Array<{ poster?: string, taken_at: number, url: string }>
+	reels_by_pk: Record<string, Reel>
+	reels: Array<Reel>
 	username: string
 };
 

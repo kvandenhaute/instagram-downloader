@@ -256,7 +256,7 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 	}
 
 	const reels = items.map(reel => {
-		if (reel.video_versions) {
+		if (reel.original_media_type === 2 && reel.video_versions) {
 			return {
 				pk: reel.pk,
 				taken_at: reel.taken_at,
@@ -303,6 +303,7 @@ type InstagramReelMediaItem = {
 	image_versions2: {
 		candidates: Array<InstagramMediaVersion>
 	}
+	original_media_type: number
 	pk: number
 	taken_at: number
 	video_versions?: Array<InstagramMediaVersion>
