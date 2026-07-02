@@ -133,6 +133,69 @@ async function getAuthHeaders() {
 	return headers;
 }
 
+// INSTAGRAM MEDIA INFO ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type InstagramCarouselItem = {
+	image_versions2?: {
+		candidates: Array<InstagramMediaVersion>
+	}
+	pk: number
+	video_url?: string
+	video_versions?: Array<InstagramMediaVersion>
+};
+
+type InstagramMediaInfoResponse = {
+	items: Array<InstagramMediaInfoItem>
+};
+
+type InstagramMediaInfoItem = {
+	carousel_media?: Array<InstagramCarouselItem>
+	image_versions2?: {
+		candidates: Array<InstagramMediaVersion>
+	}
+	pk: number
+	taken_at: number
+	user: {
+		username: string
+	}
+	video_url?: string
+	video_versions?: Array<InstagramMediaVersion>
+};
+
+type InstagramMediaInfoResult = {
+	carousel_media?: Array<{
+		image?: string
+		video?: string
+	}>
+	image?: string
+	taken_at: number
+	username: string
+	video?: string
+};
+
+async function fetchInstagramMediaInfo(postId: string) {
+	const fetchInstagramMediaInfoResult = await fetchInstagramApi<InstagramMediaInfoResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
+	if (!fetchInstagramMediaInfoResult.success) {
+		return fetchInstagramMediaInfoResult;
+	}
+
+	const item = fetchInstagramMediaInfoResult.data.items[ 0 ];
+	if (!item) {
+		return makeErrorResult(`Unexpected empty response for postId ${postId}`);
+	}
+
+	return makeSuccessResult({
+		carousel_media: item.carousel_media?.map(media => ({
+			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
+			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
+		})),
+		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
+		taken_at: item.taken_at,
+		username: item.user.username,
+		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
+	} satisfies InstagramMediaInfoResult);
+}
+
 // INSTAGRAM REELS /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type InstagramUserReelsResponse = {
@@ -225,78 +288,13 @@ async function fetchInstagramWebProfileInfo(username: string) {
 	} satisfies InstagramWebProfileInfoResult);
 }
 
-// INSTAGRAM MEDIA INFO ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type InstagramCarouselItem = {
-	image_versions2?: {
-		candidates: Array<InstagramMediaVersion>
-	}
-	pk: number
-	video_url?: string
-	video_versions?: Array<InstagramMediaVersion>
-};
-
-type InstagramMediaInfoResponse = {
-	items: Array<InstagramMediaInfoItem>
-};
-
-type InstagramMediaInfoItem = {
-	carousel_media?: Array<InstagramCarouselItem>
-	image_versions2?: {
-		candidates: Array<InstagramMediaVersion>
-	}
-	pk: number
-	taken_at: number
-	user: {
-		username: string
-	}
-	video_url?: string
-	video_versions?: Array<InstagramMediaVersion>
-};
-
-type InstagramMediaInfoResult = {
-	carousel_media?: Array<{
-		image?: string
-		video?: string
-	}>
-	image?: string
-	taken_at: number
-	username: string
-	video?: string
-};
-
-async function fetchInstagramMediaInfo(postId: string) {
-	const fetchInstagramMediaInfoResult = await fetchInstagramApi<InstagramMediaInfoResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
-	if (!fetchInstagramMediaInfoResult.success) {
-		return fetchInstagramMediaInfoResult;
-	}
-
-	const item = fetchInstagramMediaInfoResult.data.items[ 0 ];
-	if (!item) {
-		return makeErrorResult(`Unexpected empty response for postId ${postId}`);
-	}
-
-	return makeSuccessResult({
-		carousel_media: item.carousel_media?.map(media => ({
-			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
-			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
-		})),
-		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
-		taken_at: item.taken_at,
-		username: item.user.username,
-		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
-	} satisfies InstagramMediaInfoResult);
-}
-
 // /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function makeErrorResult(err: unknown, prefix?: `${string}: `): FailureResult {
 	return { success: false, error: getError(err, prefix) };
 }
 
-function makeSuccessResult(): SuccessResult<undefined>;
-function makeSuccessResult<T>(data: T): SuccessResult<typeof data>;
-function makeSuccessResult<T>(data?: T) {
+function makeSuccessResult<T>(data: T): SuccessResult<typeof data> {
 	return { success: true, data };
 }
 

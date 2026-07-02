@@ -53,6 +53,42 @@ function processMedia(media: MediaElement, pageType: PageType) {
 
 // DOWNLOAD ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
+	const shortcode = findShortcodeInUrl(url);
+	if (!shortcode) {
+		return logError('Could not find shortcode in url');
+	}
+
+	const mediaInfo = await getMediaInfo(shortcode);
+	let urls: Pick<MediaInfoResponse, 'image' | 'video'> | undefined;
+
+	if (typeof index !== 'undefined') {
+		urls = mediaInfo.carousel_media?.at(index);
+	} else {
+		urls = mediaInfo;
+	}
+
+	if (!urls) {
+		return logError('Could not find media item url');
+	}
+
+	if (media instanceof HTMLImageElement) {
+		if (!urls.image) {
+			return logError('Expected to have an image URL within the mediaInfo response');
+		}
+
+		return download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at));
+	} else if (!urls.video) {
+		return logError('Expected to have a video URL within the mediaInfo response');
+	}
+
+	if (urls.image) {
+		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), true);
+	}
+
+	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
+}
+
 function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
 	const anchor = root.querySelector<HTMLAnchorElement>('a:has(time)');
 	if (!anchor) {
@@ -102,42 +138,6 @@ async function downloadFromPostCarousel(media: MediaElement, url?: string) {
 	const index = searchParams.get('img_index');
 
 	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
-}
-
-async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
-	const shortcode = findShortcodeInUrl(url);
-	if (!shortcode) {
-		return logError('Could not find shortcode in url');
-	}
-
-	const mediaInfo = await getMediaInfo(shortcode);
-	let urls: Pick<MediaInfoResponse, 'image' | 'video'> | undefined;
-
-	if (typeof index !== 'undefined') {
-		urls = mediaInfo.carousel_media?.at(index);
-	} else {
-		urls = mediaInfo;
-	}
-
-	if (!urls) {
-		return logError('Could not find media item url');
-	}
-
-	if (media instanceof HTMLImageElement) {
-		if (!urls.image) {
-			return logError('Expected to have an image URL within the mediaInfo response');
-		}
-
-		return download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at));
-	} else if (!urls.video) {
-		return logError('Expected to have a video URL within the mediaInfo response');
-	}
-
-	if (urls.image) {
-		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), true);
-	}
-
-	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
 }
 
 async function downloadStory() {
@@ -213,6 +213,9 @@ function addDownloadButton(media: MediaElement, pageType: PageType) {
 		case 'reel':
 			addReelDownloadButton(media, pageType);
 			break;
+		case 'reels':
+			addReelsDownloadButton(media, pageType);
+			break;
 	}
 }
 
@@ -237,7 +240,36 @@ function addHomeFeedDownloadButton(media: MediaElement, pageType: PageType) {
 function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 	const root = queryFirst<HTMLElement>(document, '[role="dialog"] article > div > div:first-child', 'main > div > div:first-child > div > div');
 	if (!root || !root.contains(media)) {
-		return logDebug('No root found for media in post');
+		return logDebug('Skip, no root found for media');
+	} else if (media instanceof HTMLImageElement && root.querySelector('video')) {
+		return logDebug('Skip as this is a poster, there is a download button for the video itself');
+	}
+
+	const downloadButton = makeDownloadButton(pageType);
+	downloadButton.addEventListener('click', evt => {
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		void downloadFromPost(media);
+	});
+	downloadButton.dataset[ 'media' ] = media.src;
+
+	return getDownloadButtonParent(root, media)
+		.appendChild(downloadButton);
+}
+
+function addReelDownloadButton(media: MediaElement, pageType: PageType) {
+	return addPostDownloadButton(media, pageType);
+}
+
+function addReelsDownloadButton(media: MediaElement, pageType: PageType) {
+	if (media instanceof HTMLImageElement) {
+		return;
+	}
+
+	const root = media.closest('div:has(img)');
+	if (!root) {
+		return;
 	}
 
 	const downloadButton = makeDownloadButton(pageType);
@@ -248,12 +280,7 @@ function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 		void downloadFromPost(media);
 	});
 
-	return getDownloadButtonParent(root, media)
-		.appendChild(downloadButton);
-}
-
-function addReelDownloadButton(media: MediaElement, pageType: PageType) {
-	return addPostDownloadButton(media, pageType);
+	root.appendChild(downloadButton);
 }
 
 function addStoryDownloadButton(pageType: PageType) {
@@ -373,6 +400,8 @@ const mediaInfoMap: Map<string, MediaInfoResponse> = new Map();
 async function getMediaInfo(shortcode: string) {
 	const mediaInfo = mediaInfoMap.get(shortcode);
 	if (mediaInfo) {
+		logDebug('MediaInfo', mediaInfo);
+
 		return mediaInfo;
 	}
 
@@ -381,6 +410,8 @@ async function getMediaInfo(shortcode: string) {
 	if (!getMediaInfoResult.success) {
 		throw getMediaInfoResult.error;
 	}
+
+	logDebug('MediaInfo', getMediaInfoResult.data);
 
 	mediaInfoMap.set(shortcode, getMediaInfoResult.data);
 

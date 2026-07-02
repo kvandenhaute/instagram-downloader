@@ -11,6 +11,13 @@
 	z-index: 1;
 }
 
+.ig-dl-btn--post,
+.ig-dl-btn--reels {
+	top: 10px;
+	left: 10px;
+	transform: none;
+}
+
 .ig-dl-btn:hover {
 	background: rgba(43, 48, 54, .85);
 }
