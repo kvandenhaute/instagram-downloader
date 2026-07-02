@@ -5,57 +5,49 @@ const DEBUG = true;
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-type Config = {
-	downloadButtonContainerSelector?: string
-	selectors: Array<string>
-	type?: 'home-feed' | 'post' | 'reels' | 'reel' | 'stories'
-	username?: string
-	usernameSelector?: string
-};
+type PageType = 'home-feed' | 'post' | 'reels' | 'reel' | 'stories';
 
-function getConfig() {
+function getPageType(): PageType | null {
 	const pathname = window.location.pathname;
-	const config: Config = {
-		selectors: [],
-		username: findUsernameInUrl(),
-	};
 
 	if (pathname === '/') {
-		config.type = 'home-feed';
+		return 'home-feed';
 	} else if (pathname.includes('/p/')) {
-		config.type = 'post';
+		return 'post';
 	} else if (pathname.includes('/reels/')) {
-		config.type = 'reels';
+		return 'reels';
 	} else if (pathname.includes('/reel/')) {
-		config.type = 'reel';
+		return 'reel';
 	} else if (pathname.includes('/stories/')) {
-		config.type = 'stories';
+		return 'stories';
 	}
 
-	return config;
+	return null;
 }
 
 function scanPage() {
-	const config = getConfig();
-
-	if (window.location.pathname.includes('/stories/')) {
-		return addStoryDownloadButton(config);
+	const pageType = getPageType();
+	if (!pageType) {
+		return;
 	}
 
-	// const media = document.querySelectorAll<HTMLImageElement>(config.selectors.join(','));
+	if (pageType === 'stories') {
+		return addStoryDownloadButton(pageType);
+	}
+
 	const media = document.querySelectorAll<HTMLImageElement>('img,video');
 
-	media.forEach(m => processMedia(m, config));
+	media.forEach(m => processMedia(m, pageType));
 }
 
-function processMedia(media: MediaElement, config: Config) {
+function processMedia(media: MediaElement, pageType: PageType) {
 	if (media.hasAttribute(PROCESSED_ATTR)) {
 		return;
 	} else if (!isValidMedia(media)) {
 		return;
 	}
 
-	addDownloadButton(media, config);
+	addDownloadButton(media, pageType);
 	media.setAttribute(PROCESSED_ATTR, '1');
 }
 
@@ -188,26 +180,6 @@ async function download(url: string, username: string, datetime: string, isPoste
 	});
 }
 
-async function downloadRawMedia(media: MediaElement, username: string = 'unknown') {
-	if (media instanceof HTMLVideoElement) {
-		console.warn('Download of raw video not supported');
-
-		return;
-	}
-
-	return downloadRawImage(media, username);
-}
-
-async function downloadRawImage(img: HTMLImageElement, username: string) {
-	const url = getImageUrl(img);
-
-	return sendMessage({
-		type: 'download',
-		url,
-		filename: makeFilename(url, username, getDatetime(img)),
-	});
-}
-
 function makeFilename(url: string, username: string, datetime: string, isPoster?: boolean) {
 	const basename = `instagram_${username}__${formatDatetimeToFilenamePart(datetime)}`;
 	const ext = getFileExtension(url);
@@ -230,27 +202,27 @@ function findUsernameInUrl() {
 
 // DOWNLOAD BUTTON /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function addDownloadButton(media: MediaElement, config: Config) {
-	switch (config.type) {
+function addDownloadButton(media: MediaElement, pageType: PageType) {
+	switch (pageType) {
 		case 'home-feed':
-			addHomeFeedDownloadButton(media, config);
+			addHomeFeedDownloadButton(media, pageType);
 			break;
 		case 'post':
-			addPostDownloadButton(media, config);
+			addPostDownloadButton(media, pageType);
 			break;
 		case 'reel':
-			addReelDownloadButton(media, config);
+			addReelDownloadButton(media, pageType);
 			break;
 	}
 }
 
-function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
+function addHomeFeedDownloadButton(media: MediaElement, pageType: PageType) {
 	const root = media.closest('article');
 	if (!root) {
 		return;
 	}
 
-	const downloadButton = makeDownloadButton(config);
+	const downloadButton = makeDownloadButton(pageType);
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -262,13 +234,13 @@ function addHomeFeedDownloadButton(media: MediaElement, config: Config) {
 		.appendChild(downloadButton);
 }
 
-function addPostDownloadButton(media: MediaElement, config: Config) {
+function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 	const root = queryFirst<HTMLElement>(document, '[role="dialog"] article > div > div:first-child', 'main > div > div:first-child > div > div');
 	if (!root || !root.contains(media)) {
 		return logDebug('No root found for media in post');
 	}
 
-	const downloadButton = makeDownloadButton(config);
+	const downloadButton = makeDownloadButton(pageType);
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -280,17 +252,17 @@ function addPostDownloadButton(media: MediaElement, config: Config) {
 		.appendChild(downloadButton);
 }
 
-function addReelDownloadButton(media: MediaElement, config: Config) {
-	return addPostDownloadButton(media, config);
+function addReelDownloadButton(media: MediaElement, pageType: PageType) {
+	return addPostDownloadButton(media, pageType);
 }
 
-function addStoryDownloadButton(config: Config) {
+function addStoryDownloadButton(pageType: PageType) {
 	const section = document.querySelector('section:has([aria-label="Instagram"])');
 	if (!section || section.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
 		return;
 	}
 
-	const downloadButton = makeDownloadButton(config);
+	const downloadButton = makeDownloadButton(pageType);
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -325,15 +297,10 @@ function getDownloadButtonParent(root: HTMLElement, media: MediaElement) {
 	return buttonParent;
 }
 
-function makeDownloadButton(config: Config) {
+function makeDownloadButton(pageType: PageType) {
 	const button = document.createElement('button');
-	button.classList.add(BTN_CLASS_NAME);
-	if (config.type) {
-		button.classList.add(config.type);
-	}
-
+	button.classList.add(BTN_CLASS_NAME, `${BTN_CLASS_NAME}--${pageType}`);
 	button.appendChild(makeDownloadIcon());
-	// button.addEventListener('click', evt => void downloadHandler(evt, container, media, config));
 
 	return button;
 }
@@ -352,27 +319,6 @@ function makeDownloadIcon(): SVGSVGElement {
 // SHORTCODE ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-
-function findShortcode(media: MediaElement) {
-	const shortcode = findShortcodeInUrl();
-	if (shortcode) {
-		return shortcode;
-	}
-
-	const container = media.closest<HTMLElement>('article, [role="dialog"]');
-	if (!container) {
-		return null;
-	}
-
-	for (const a of container.querySelectorAll<HTMLAnchorElement>('a[href]')) {
-		const match = a.href.match(/\/(p|reel)\/([A-Za-z0-9_-]+)/);
-		if (match) {
-			return match[ 2 ] ?? null;
-		}
-	}
-
-	return null;
-}
 
 function findShortcodeInUrl(url: string = window.location.href) {
 	const urlMatch = url.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
@@ -400,42 +346,12 @@ function formatDatetimeToFilenamePart(datetime: string): string {
 		.replace(/\.\d+Z?$/, '');
 }
 
-function getDatetime(media: HTMLElement): string;
-function getDatetime(takenAt: number): string;
-function getDatetime(value: HTMLElement | number) {
-	if (typeof value === 'number') {
-		return new Date(value).toISOString();
-	}
-
-	const time = value.closest(':has(time[datetime])')?.querySelector('time[datetime]');
-
-	return time?.getAttribute('datetime') ?? new Date().toISOString();
+function getDatetime(takenAt: number) {
+	return new Date(takenAt).toISOString();
 }
 
 function getFileExtension(url: string) {
 	return new URL(url).pathname.split('.').pop() || 'jpg';
-}
-
-function getImageUrl(img: HTMLImageElement) {
-	const srcset = img.srcset;
-	if (!srcset) {
-		return img.src;
-	}
-
-	const candidates = srcset
-		.split(',')
-		.map(source => {
-			const parts = source.trim().split(/\s+/);
-
-			return {
-				url: parts[ 0 ] ?? '',
-				width: parseInt(parts[ 1 ] ?? '0', 10),
-			};
-		})
-		.filter(c => c.url);
-	candidates.sort((a, b) => b.width - a.width);
-
-	return candidates[ 0 ]?.url ?? img.src;
 }
 
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
