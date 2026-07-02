@@ -226,6 +226,8 @@ async function fetchInstagramUserHighlight(highlightId: string) {
 		return fetchResult;
 	}
 
+	console.log(fetchResult.data);
+
 	return processReelsMediaItem(fetchResult.data.reels_media);
 }
 
@@ -236,6 +238,7 @@ type InstagramUserReelsResponse = {
 type InstagramUserReelsResult = {
 	reels_by_pk: Record<string, { taken_at: number, url: string }>
 	reels: Array<{ taken_at: number, url: string }>
+	username: string
 };
 
 async function fetchInstagramUserReels(userId: number) {
@@ -248,7 +251,8 @@ async function fetchInstagramUserReels(userId: number) {
 }
 
 function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
-	const items = reelsMedia.at(0)?.items;
+	const item = reelsMedia.at(0);
+	const items = item?.items;
 	if (!items) {
 		return makeErrorResult('No reels found');
 	}
@@ -275,6 +279,7 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 			taken_at: reel.takenAt,
 			url: reel.url,
 		})),
+		username: item.user.username,
 	};
 
 	reels.reduce(($result, reel) => {
@@ -291,6 +296,10 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 
 type InstagramReelsMediaItem = {
 	items: Array<InstagramReelMediaItem>
+	reel_type: string
+	user: {
+		username: string
+	}
 };
 
 type InstagramReelMediaItem = {

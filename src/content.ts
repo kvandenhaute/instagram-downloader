@@ -142,37 +142,57 @@ async function downloadFromPostCarousel(media: MediaElement, url?: string) {
 	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
 }
 
-async function downloadHighlightStory() {
-	const match = window.location.href.match(/\/highlights\/[^/]+\/(\d+)/);
+function findActiveHighlightIndex(root: HTMLElement): number | null {
+	const isProgressBar = (el: Element) => {
+		const height = el.clientHeight || (el as HTMLElement).offsetHeight;
+		const width = el.clientWidth || (el as HTMLElement).offsetWidth;
+
+		return height > 0 && height < 5 && width > 150 && el.children.length > 0;
+	};
+
+	// const container = header ? Array.from(header.querySelectorAll('div')).find(isProgressBar) : Array.from(document.querySelectorAll('div')).find(isProgressBar);
+
+	const container = Array.from(root.querySelectorAll('div')).find(isProgressBar);
+
+	console.log({ container });
+
+	if (!container) {
+		return null;
+	}
+
+	const segments = Array.from(container.children);
+	let activeIndex = 0;
+	let maxChildren = 0;
+
+	for (let i = 0; i < segments.length; i++) {
+		if (segments[ i ].children.length > maxChildren) {
+			maxChildren = segments[ i ].children.length;
+			activeIndex = i;
+		}
+	}
+
+	return activeIndex;
+}
+
+async function downloadHighlightStory(root: HTMLElement) {
+	const match = window.location.href.match(/\/highlights\/(\d+)/);
 	const highlightId = match?.at(1);
-
-	console.log({ highlightId });
-
 	if (!highlightId) {
 		return;
 	}
 
-	const highlight = await getHighlightReels(highlightId);
-	console.log(highlight);
+	const index = findActiveHighlightIndex(root);
+	if (index === null) {
+		return;
+	}
 
-	// if (!storyId) {
-	// 	const firstReel = reels.reels.at(0);
-	// 	if (!firstReel) {
-	// 		return logError('No reels found');
-	// 	}
-	//
-	// 	return download(firstReel.url, username, getDatetime(firstReel.taken_at));
-	// }
-	//
-	// const reel = reels.reels_by_pk[ storyId.toString() ];
-	// if (!reel) {
-	// 	logDebug(reels);
-	// 	logError(`No reel found for story ${storyId}`);
-	//
-	// 	return;
-	// }
-	//
-	// return download(reel.url, username, getDatetime(reel.taken_at));
+	const highlightReels = await getHighlightReels(highlightId);
+	const reel = highlightReels.reels.at(index);
+	if (!reel) {
+		return logError(`Could not find highlight reel at index ${index}`);
+	}
+
+	return download(reel.url, highlightReels.username, getDatetime(reel.taken_at));
 }
 
 async function downloadStory() {
@@ -334,7 +354,7 @@ function addHighlightDownloadButton(media: MediaElement) {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadHighlightStory();
+		void downloadHighlightStory(root);
 	});
 
 	root.appendChild(downloadButton);
@@ -496,13 +516,14 @@ async function getWebProfileInfo(username: string) {
 	return sendMessageResult.data;
 }
 
-type UserHighlightReels = {
+type HighlightReels = {
 	reels_by_pk: Record<string, { taken_at: number, url: string }>
 	reels: Array<{ taken_at: number, url: string }>
+	username: string
 };
 
 async function getHighlightReels(highlightId: string) {
-	const sendMessageResult = await sendMessage<UserHighlightReels>({ type: 'get_user_highlight', highlightId });
+	const sendMessageResult = await sendMessage<HighlightReels>({ type: 'get_user_highlight', highlightId });
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -513,6 +534,7 @@ async function getHighlightReels(highlightId: string) {
 type UserReelsResponse = {
 	reels_by_pk: Record<string, { taken_at: number, url: string }>
 	reels: Array<{ taken_at: number, url: string }>
+	username: string
 };
 
 async function getUserReels(userId: number) {
