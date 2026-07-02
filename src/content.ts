@@ -457,7 +457,7 @@ function addReelsDownloadButton(media: MediaElement, pageType: PageType) {
 }
 
 function addStoryDownloadButton(pageType: 'stories') {
-	const root = document.querySelector('root:has([aria-label="Instagram"])');
+	const root = document.querySelector('section:has([aria-label="Instagram"])');
 	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
 		return;
 	}
