@@ -11,6 +11,12 @@
 	z-index: 1;
 }
 
+.ig-dl-btn--highlights {
+	top: 80px;
+	left: 10px;
+	transform: none;
+}
+
 .ig-dl-btn--post,
 .ig-dl-btn--reels {
 	top: 10px;

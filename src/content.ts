@@ -5,7 +5,7 @@ const DEBUG = true;
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-type PageType = 'home-feed' | 'post' | 'reels' | 'reel' | 'stories';
+type PageType = 'highlights' | 'home-feed' | 'post' | 'reels' | 'reel' | 'stories';
 
 function getPageType(): PageType | null {
 	const pathname = window.location.pathname;
@@ -14,10 +14,12 @@ function getPageType(): PageType | null {
 		return 'home-feed';
 	} else if (pathname.includes('/p/')) {
 		return 'post';
-	} else if (pathname.includes('/reels/')) {
-		return 'reels';
 	} else if (pathname.includes('/reel/')) {
 		return 'reel';
+	} else if (pathname.includes('/highlights/')) {
+		return 'highlights';
+	} else if (pathname.includes('/reels/')) {
+		return 'reels';
 	} else if (pathname.includes('/stories/')) {
 		return 'stories';
 	}
@@ -140,6 +142,39 @@ async function downloadFromPostCarousel(media: MediaElement, url?: string) {
 	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
 }
 
+async function downloadHighlightStory() {
+	const match = window.location.href.match(/\/highlights\/[^/]+\/(\d+)/);
+	const highlightId = match?.at(1);
+
+	console.log({ highlightId });
+
+	if (!highlightId) {
+		return;
+	}
+
+	const highlight = await getHighlightReels(highlightId);
+	console.log(highlight);
+
+	// if (!storyId) {
+	// 	const firstReel = reels.reels.at(0);
+	// 	if (!firstReel) {
+	// 		return logError('No reels found');
+	// 	}
+	//
+	// 	return download(firstReel.url, username, getDatetime(firstReel.taken_at));
+	// }
+	//
+	// const reel = reels.reels_by_pk[ storyId.toString() ];
+	// if (!reel) {
+	// 	logDebug(reels);
+	// 	logError(`No reel found for story ${storyId}`);
+	//
+	// 	return;
+	// }
+	//
+	// return download(reel.url, username, getDatetime(reel.taken_at));
+}
+
 async function downloadStory() {
 	const username = findUsernameInUrl();
 	if (!username) {
@@ -204,6 +239,9 @@ function findUsernameInUrl() {
 
 function addDownloadButton(media: MediaElement, pageType: PageType) {
 	switch (pageType) {
+		case 'highlights':
+			addHighlightDownloadButton(media);
+			break;
 		case 'home-feed':
 			addHomeFeedDownloadButton(media, pageType);
 			break;
@@ -283,9 +321,28 @@ function addReelsDownloadButton(media: MediaElement, pageType: PageType) {
 	root.appendChild(downloadButton);
 }
 
-function addStoryDownloadButton(pageType: PageType) {
-	const section = document.querySelector('section:has([aria-label="Instagram"])');
-	if (!section || section.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
+function addHighlightDownloadButton(media: MediaElement) {
+	const root = document.querySelector<HTMLElement>('section > div > div > div');
+	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
+		return;
+	}
+
+	root.dataset.igDl = media.src;
+
+	const downloadButton = makeDownloadButton('highlights');
+	downloadButton.addEventListener('click', evt => {
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		void downloadHighlightStory();
+	});
+
+	root.appendChild(downloadButton);
+}
+
+function addStoryDownloadButton(pageType: 'stories') {
+	const root = document.querySelector('root:has([aria-label="Instagram"])');
+	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
 		return;
 	}
 
@@ -297,7 +354,7 @@ function addStoryDownloadButton(pageType: PageType) {
 		void downloadStory();
 	});
 
-	section.appendChild(downloadButton);
+	root.appendChild(downloadButton);
 }
 
 function getDownloadButtonParent(root: HTMLElement, media: MediaElement) {
@@ -406,16 +463,16 @@ async function getMediaInfo(shortcode: string) {
 	}
 
 	const postId = mapShortcodeToPostId(shortcode);
-	const getMediaInfoResult = await sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
-	if (!getMediaInfoResult.success) {
-		throw getMediaInfoResult.error;
+	const sendMessageResult = await sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
+	if (!sendMessageResult.success) {
+		throw sendMessageResult.error;
 	}
 
-	logDebug('MediaInfo', getMediaInfoResult.data);
+	logDebug('MediaInfo', sendMessageResult.data);
 
-	mediaInfoMap.set(shortcode, getMediaInfoResult.data);
+	mediaInfoMap.set(shortcode, sendMessageResult.data);
 
-	return getMediaInfoResult.data;
+	return sendMessageResult.data;
 }
 
 type WebProfileInfoResponse = {
@@ -430,13 +487,27 @@ async function getWebProfileInfo(username: string) {
 		return webProfileInfo;
 	}
 
-	const getWebProfileInfoResult = await sendMessage<WebProfileInfoResponse>({ type: 'get_web_profile_info', username });
-	if (!getWebProfileInfoResult.success) {
-		throw getWebProfileInfoResult.error;
+	const sendMessageResult = await sendMessage<WebProfileInfoResponse>({ type: 'get_web_profile_info', username });
+	if (!sendMessageResult.success) {
+		throw sendMessageResult.error;
 	}
-	webProfileInfoMap.set(username, getWebProfileInfoResult.data);
+	webProfileInfoMap.set(username, sendMessageResult.data);
 
-	return getWebProfileInfoResult.data;
+	return sendMessageResult.data;
+}
+
+type UserHighlightReels = {
+	reels_by_pk: Record<string, { taken_at: number, url: string }>
+	reels: Array<{ taken_at: number, url: string }>
+};
+
+async function getHighlightReels(highlightId: string) {
+	const sendMessageResult = await sendMessage<UserHighlightReels>({ type: 'get_user_highlight', highlightId });
+	if (!sendMessageResult.success) {
+		throw sendMessageResult.error;
+	}
+
+	return sendMessageResult.data;
 }
 
 type UserReelsResponse = {
@@ -445,12 +516,12 @@ type UserReelsResponse = {
 };
 
 async function getUserReels(userId: number) {
-	const getUserReelsResult = await sendMessage<UserReelsResponse>({ type: 'get_user_reels', userId });
-	if (!getUserReelsResult.success) {
-		throw getUserReelsResult.error;
+	const sendMessageResult = await sendMessage<UserReelsResponse>({ type: 'get_user_reels', userId });
+	if (!sendMessageResult.success) {
+		throw sendMessageResult.error;
 	}
 
-	return getUserReelsResult.data;
+	return sendMessageResult.data;
 }
 
 // DOM TRAVERSING //////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -19,12 +19,17 @@ type GetWebProfileInfoMessage = {
 	username: string
 };
 
+type GetUserHighlightsMessage = {
+	type: 'get_user_highlight'
+	highlightId: string
+};
+
 type GetUserReelsMessage = {
 	type: 'get_user_reels'
 	userId: number
 };
 
-type Message = DownloadMessage | GetMediaInfoMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
+type Message = DownloadMessage | GetMediaInfoMessage | GetUserHighlightsMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -37,6 +42,11 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_media_info') {
 			void fetchInstagramMediaInfo(message.postId)
+				.then(result => sendResponse(result));
+
+			return true;
+		} else if (message.type === 'get_user_highlight') {
+			void fetchInstagramUserHighlight(message.highlightId)
 				.then(result => sendResponse(result));
 
 			return true;
@@ -102,6 +112,8 @@ async function fetchInstagramApi<T>(path: `/api/v1/${string}`): Promise<Result<T
 		}
 
 		const data = await response.json() as T;
+
+		console.log(path, data);
 
 		return makeSuccessResult(data);
 	} catch (err) {
@@ -174,12 +186,12 @@ type InstagramMediaInfoResult = {
 };
 
 async function fetchInstagramMediaInfo(postId: string) {
-	const fetchInstagramMediaInfoResult = await fetchInstagramApi<InstagramMediaInfoResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
-	if (!fetchInstagramMediaInfoResult.success) {
-		return fetchInstagramMediaInfoResult;
+	const fetchResult = await fetchInstagramApi<InstagramMediaInfoResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
+	if (!fetchResult.success) {
+		return fetchResult;
 	}
 
-	const item = fetchInstagramMediaInfoResult.data.items[ 0 ];
+	const item = fetchResult.data.items[ 0 ];
 	if (!item) {
 		return makeErrorResult(`Unexpected empty response for postId ${postId}`);
 	}
@@ -198,17 +210,27 @@ async function fetchInstagramMediaInfo(postId: string) {
 
 // INSTAGRAM REELS /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type InstagramUserReelsResponse = {
-	reels_media: Array<{
-		items: Array<{
-			image_versions2: {
-				candidates: Array<InstagramMediaVersion>
-			}
-			pk: number
-			taken_at: number
-			video_versions?: Array<InstagramMediaVersion>
+type InstagramHighlightResponse = {
+	highlights_info: {
+		added_to: Array<{
+			reel_id: string
+			title: string
 		}>
-	}>
+	}
+	reels_media: Array<InstagramReelsMediaItem>
+};
+
+async function fetchInstagramUserHighlight(highlightId: string) {
+	const fetchResult = await fetchInstagramApi<InstagramHighlightResponse>(`/api/v1/feed/reels_media/?reel_ids=highlight:${highlightId}`);
+	if (!fetchResult.success) {
+		return fetchResult;
+	}
+
+	return processReelsMediaItem(fetchResult.data.reels_media);
+}
+
+type InstagramUserReelsResponse = {
+	reels_media: Array<InstagramReelsMediaItem>
 };
 
 type InstagramUserReelsResult = {
@@ -217,12 +239,16 @@ type InstagramUserReelsResult = {
 };
 
 async function fetchInstagramUserReels(userId: number) {
-	const fetchReelsResult = await fetchInstagramApi<InstagramUserReelsResponse>(`/api/v1/feed/reels_media/?reel_ids=${encodeURIComponent(userId)}`);
-	if (!fetchReelsResult.success) {
-		return fetchReelsResult;
+	const fetchResult = await fetchInstagramApi<InstagramUserReelsResponse>(`/api/v1/feed/reels_media/?reel_ids=${encodeURIComponent(userId)}`);
+	if (!fetchResult.success) {
+		return fetchResult;
 	}
 
-	const items = fetchReelsResult.data.reels_media.at(0)?.items;
+	return processReelsMediaItem(fetchResult.data.reels_media);
+}
+
+function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
+	const items = reelsMedia.at(0)?.items;
 	if (!items) {
 		return makeErrorResult('No reels found');
 	}
@@ -263,6 +289,19 @@ async function fetchInstagramUserReels(userId: number) {
 	return makeSuccessResult(result);
 }
 
+type InstagramReelsMediaItem = {
+	items: Array<InstagramReelMediaItem>
+};
+
+type InstagramReelMediaItem = {
+	image_versions2: {
+		candidates: Array<InstagramMediaVersion>
+	}
+	pk: number
+	taken_at: number
+	video_versions?: Array<InstagramMediaVersion>
+};
+
 // INSTAGRAM WEB PROFILE INFO //////////////////////////////////////////////////////////////////////////////////////////
 
 type InstagramWebProfileInfoResponse = {
@@ -278,13 +317,13 @@ type InstagramWebProfileInfoResult = {
 };
 
 async function fetchInstagramWebProfileInfo(username: string) {
-	const fetchWebProfileInfoResult = await fetchInstagramApi<InstagramWebProfileInfoResponse>(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`);
-	if (!fetchWebProfileInfoResult.success) {
-		return fetchWebProfileInfoResult;
+	const fetchResult = await fetchInstagramApi<InstagramWebProfileInfoResponse>(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`);
+	if (!fetchResult.success) {
+		return fetchResult;
 	}
 
 	return makeSuccessResult({
-		userId: fetchWebProfileInfoResult.data.data.user.id,
+		userId: fetchResult.data.data.user.id,
 	} satisfies InstagramWebProfileInfoResult);
 }
 
