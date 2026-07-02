@@ -35,13 +35,11 @@ function processMedia(media: MediaElement, pageType: PageType) {
 
 // HIGHLIGHTS //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function addHighlightDownloadButton(media: MediaElement) {
+function addHighlightDownloadButton() {
 	const root = document.querySelector<HTMLElement>('section > div > div > div');
 	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
 		return;
 	}
-
-	root.dataset.igDl = media.src;
 
 	const downloadButton = makeDownloadButton('highlights');
 	downloadButton.addEventListener('click', evt => {
@@ -310,7 +308,7 @@ function findUsernameInUrl() {
 function addDownloadButton(media: MediaElement, pageType: PageType) {
 	switch (pageType) {
 		case 'highlights':
-			addHighlightDownloadButton(media);
+			addHighlightDownloadButton();
 			break;
 		case 'home-feed':
 			addHomeFeedDownloadButton(media, pageType);
