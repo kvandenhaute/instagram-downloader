@@ -19,8 +19,8 @@ type GetWebProfileInfoMessage = {
 	username: string
 };
 
-type GetUserHighlightsMessage = {
-	type: 'get_user_highlight'
+type GetHighlightReelsMessage = {
+	type: 'get_highlight_reels'
 	highlightId: string
 };
 
@@ -29,7 +29,7 @@ type GetUserReelsMessage = {
 	userId: number
 };
 
-type Message = DownloadMessage | GetMediaInfoMessage | GetUserHighlightsMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
+type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -45,8 +45,8 @@ chrome.runtime.onMessage.addListener(
 				.then(result => sendResponse(result));
 
 			return true;
-		} else if (message.type === 'get_user_highlight') {
-			void fetchInstagramUserHighlight(message.highlightId)
+		} else if (message.type === 'get_highlight_reels') {
+			void fetchInstagramHighlightReels(message.highlightId)
 				.then(result => sendResponse(result));
 
 			return true;
@@ -220,13 +220,11 @@ type InstagramHighlightResponse = {
 	reels_media: Array<InstagramReelsMediaItem>
 };
 
-async function fetchInstagramUserHighlight(highlightId: string) {
+async function fetchInstagramHighlightReels(highlightId: string) {
 	const fetchResult = await fetchInstagramApi<InstagramHighlightResponse>(`/api/v1/feed/reels_media/?reel_ids=highlight:${highlightId}`);
 	if (!fetchResult.success) {
 		return fetchResult;
 	}
-
-	console.log(fetchResult.data);
 
 	return processReelsMediaItem(fetchResult.data.reels_media);
 }
@@ -236,8 +234,8 @@ type InstagramUserReelsResponse = {
 };
 
 type InstagramUserReelsResult = {
-	reels_by_pk: Record<string, { taken_at: number, url: string }>
-	reels: Array<{ taken_at: number, url: string }>
+	reels_by_pk: Record<string, { poster?: string, taken_at: number, url: string }>
+	reels: Array<{ poster?: string, taken_at: number, url: string }>
 	username: string
 };
 
@@ -261,31 +259,30 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 		if (reel.video_versions) {
 			return {
 				pk: reel.pk,
-				takenAt: reel.taken_at,
+				taken_at: reel.taken_at,
 				url: findBestCandidate(reel.video_versions).url,
+				poster: findBestCandidate(reel.image_versions2.candidates).url,
 			};
 		}
 
 		return {
 			pk: reel.pk,
-			takenAt: reel.taken_at,
+			taken_at: reel.taken_at,
 			url: findBestCandidate(reel.image_versions2.candidates).url,
 		};
 	});
 
 	const result: InstagramUserReelsResult = {
 		reels_by_pk: {},
-		reels: reels.map(reel => ({
-			taken_at: reel.takenAt,
-			url: reel.url,
-		})),
+		reels,
 		username: item.user.username,
 	};
 
 	reels.reduce(($result, reel) => {
 		$result.reels_by_pk[ reel.pk.toString(10) ] = {
-			taken_at: reel.takenAt,
+			taken_at: reel.taken_at,
 			url: reel.url,
+			poster: reel.poster,
 		};
 
 		return $result;

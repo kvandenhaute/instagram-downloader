@@ -134,12 +134,20 @@ async function downloadAllHighlights() {
 		const title = highlight.title || highlight.id;
 
 		return pMap(reels.reels, async (reel, index) => {
-			return download(reel.url, reels.username, getDatetime(reel.taken_at), {
-				suffix: [
-					encodeURIComponent(title.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim()),
-					index.toString().padStart(3, '0'),
-				],
-			});
+			if (index > 0) {
+				return;
+			}
+
+			const suffix = [
+				encodeURIComponent(title.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim()),
+				index.toString().padStart(3, '0'),
+			];
+
+			if (reel.poster) {
+				await download(reel.poster, reels.username, getDatetime(reel.taken_at), { suffix, isPoster: true });
+			}
+
+			return download(reel.url, reels.username, getDatetime(reel.taken_at), { suffix });
 		}, { concurrency: 3 });
 	}, { concurrency: 3 });
 }
@@ -313,8 +321,8 @@ async function downloadStory() {
 	return download(reel.url, username, getDatetime(reel.taken_at));
 }
 
-async function download(url: string, username: string, datetime: string, filenameOptions?: FilenameOptions) {
-	return sendMessage({
+async function download(url: string, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
+	return chrome.runtime.sendMessage({
 		type: 'download',
 		url,
 		filename: makeFilename(url, username, datetime, filenameOptions),
@@ -598,13 +606,13 @@ async function getWebProfileInfo(username: string) {
 }
 
 type HighlightReels = {
-	reels_by_pk: Record<string, { taken_at: number, url: string }>
-	reels: Array<{ taken_at: number, url: string }>
+	reels_by_pk: Record<string, { poster?: string, taken_at: number, url: string }>
+	reels: Array<{ poster?: string, taken_at: number, url: string }>
 	username: string
 };
 
 async function getHighlightReels(highlightId: string) {
-	const sendMessageResult = await sendMessage<HighlightReels>({ type: 'get_user_highlight', highlightId });
+	const sendMessageResult = await sendMessage<HighlightReels>({ type: 'get_highlight_reels', highlightId });
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -613,8 +621,8 @@ async function getHighlightReels(highlightId: string) {
 }
 
 type UserReelsResponse = {
-	reels_by_pk: Record<string, { taken_at: number, url: string }>
-	reels: Array<{ taken_at: number, url: string }>
+	reels_by_pk: Record<string, { poster?: string, taken_at: number, url: string }>
+	reels: Array<{ poster?: string, taken_at: number, url: string }>
 	username: string
 };
 
