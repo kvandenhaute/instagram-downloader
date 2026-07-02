@@ -5,7 +5,7 @@ const DEBUG = true;
 const BTN_CLASS_NAME = 'ig-dl-btn';
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 
-type PageType = 'highlights' | 'home-feed' | 'post' | 'reels' | 'reel' | 'stories';
+type PageType = 'highlights' | 'home-feed' | 'post' | 'profile' | 'reels' | 'reel' | 'stories';
 
 function scanPage() {
 	const pageType = getPageType();
@@ -13,7 +13,9 @@ function scanPage() {
 		return;
 	}
 
-	if (pageType === 'stories') {
+	if (pageType === 'profile') {
+		return addHighlightsDownloadButton();
+	} else if (pageType === 'stories') {
 		return addStoryDownloadButton(pageType);
 	}
 
@@ -34,6 +36,26 @@ function processMedia(media: MediaElement, pageType: PageType) {
 }
 
 // HIGHLIGHTS //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function addHighlightsDownloadButton() {
+	const root = document.querySelector<HTMLElement>('section main div:has(> header)');
+	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
+		return;
+	}
+
+	const downloadButton = makeDownloadButton('profile', 'highlights');
+	downloadButton.addEventListener('click', evt => {
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		void downloadHighlights();
+	});
+
+	console.log('added');
+
+	root.style.setProperty('position', 'relative');
+	root.appendChild(downloadButton);
+}
 
 function addHighlightDownloadButton() {
 	const root = document.querySelector<HTMLElement>('section > div > div > div');
@@ -101,6 +123,10 @@ async function collectAllHighlights() {
 	return Array.from(collected.values());
 }
 
+async function downloadHighlights() {
+	//
+}
+
 async function downloadHighlightStory(root: HTMLElement) {
 	const match = window.location.href.match(/\/highlights\/(\d+)/);
 	const highlightId = match?.at(1);
@@ -130,12 +156,7 @@ function findActiveHighlightIndex(root: HTMLElement): number | null {
 		return height > 0 && height < 5 && width > 150 && el.children.length > 0;
 	};
 
-	// const container = header ? Array.from(header.querySelectorAll('div')).find(isProgressBar) : Array.from(document.querySelectorAll('div')).find(isProgressBar);
-
 	const container = Array.from(root.querySelectorAll('div')).find(isProgressBar);
-
-	console.log({ container });
-
 	if (!container) {
 		return null;
 	}
@@ -430,9 +451,9 @@ function getDownloadButtonParent(root: HTMLElement, media: MediaElement) {
 	return buttonParent;
 }
 
-function makeDownloadButton(pageType: PageType) {
+function makeDownloadButton(...pageTypes: [PageType, ...PageType[]]) {
 	const button = document.createElement('button');
-	button.classList.add(BTN_CLASS_NAME, `${BTN_CLASS_NAME}--${pageType}`);
+	button.classList.add(BTN_CLASS_NAME, ...pageTypes.map(pageType => `${BTN_CLASS_NAME}--${pageType}`));
 	button.appendChild(makeDownloadIcon());
 
 	return button;
@@ -602,7 +623,7 @@ function findFirstRelativeDescendant(root: HTMLElement) {
 	return null;
 }
 
-function queryFirst<T extends Element>(root: ParentNode, ...selectors: [string, ...Array<string>]): T | null {
+function queryFirst<T extends Element>(root: ParentNode, ...selectors: [string, ...string[]]): T | null {
 	for (const selector of selectors) {
 		const el = root.querySelector<T>(selector);
 		if (el) {
@@ -632,7 +653,7 @@ function getPageType(): PageType | null {
 		return 'stories';
 	}
 
-	return null;
+	return 'profile';
 }
 
 function isValidMedia(media: MediaElement) {
@@ -676,9 +697,9 @@ function init() {
 
 	observer.observe(document.body, { childList: true, subtree: true });
 
-	setTimeout(() => {
-		void collectAllHighlights().then(console.log);
-	}, 3000);
+	// setTimeout(() => {
+	// 	void collectAllHighlights().then(console.log);
+	// }, 3000);
 }
 
 if (document.readyState === 'loading') {

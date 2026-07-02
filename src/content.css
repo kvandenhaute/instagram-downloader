@@ -17,6 +17,12 @@
 	transform: none;
 }
 
+.ig-dl-btn--profile.ig-dl-btn--highlights {
+	top: 0;
+	left: 0;
+	transform: none;
+}
+
 .ig-dl-btn--post,
 .ig-dl-btn--reels {
 	top: 10px;
