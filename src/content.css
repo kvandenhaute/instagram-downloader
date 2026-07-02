@@ -11,6 +11,10 @@
 	z-index: 1;
 }
 
+.ig-dl-btn[disabled] {
+	cursor: progress;
+}
+
 .ig-dl-btn--highlights {
 	top: 80px;
 	left: 10px;

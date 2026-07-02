@@ -1,3 +1,5 @@
+import pMap from 'p-map';
+
 import { Result } from './types';
 
 const DEBUG = true;
@@ -48,10 +50,11 @@ function addHighlightsDownloadButton() {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadHighlights();
-	});
+		downloadButton.disabled = true;
 
-	console.log('added');
+		void downloadAllHighlights()
+			.finally(() => (downloadButton.disabled = false));
+	});
 
 	root.style.setProperty('position', 'relative');
 	root.appendChild(downloadButton);
@@ -123,8 +126,19 @@ async function collectAllHighlights() {
 	return Array.from(collected.values());
 }
 
-async function downloadHighlights() {
-	//
+async function downloadAllHighlights() {
+	const highlights = await collectAllHighlights();
+
+	return pMap(highlights, async highlight => {
+		const reels = await getHighlightReels(highlight.id);
+		const title = highlight.title || highlight.id;
+
+		return pMap(reels.reels, async (reel, index) => {
+			return download(reel.url, reels.username, getDatetime(reel.taken_at), {
+				suffix: [ encodeURIComponent(title), index.toString().padStart(3, '0') ],
+			});
+		}, { concurrency: 3 });
+	}, { concurrency: 3 });
 }
 
 async function downloadHighlightStory(root: HTMLElement) {
@@ -207,7 +221,7 @@ async function downloadByShortcode(media: MediaElement, url?: string, index?: nu
 	}
 
 	if (urls.image) {
-		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), true);
+		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), { isPoster: true });
 	}
 
 	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
@@ -296,23 +310,41 @@ async function downloadStory() {
 	return download(reel.url, username, getDatetime(reel.taken_at));
 }
 
-async function download(url: string, username: string, datetime: string, isPoster?: boolean) {
+async function download(url: string, username: string, datetime: string, filenameOptions?: FilenameOptions) {
 	return sendMessage({
 		type: 'download',
 		url,
-		filename: makeFilename(url, username, datetime, isPoster),
+		filename: makeFilename(url, username, datetime, filenameOptions),
 	});
 }
 
-function makeFilename(url: string, username: string, datetime: string, isPoster?: boolean) {
-	const basename = `instagram_${username}__${formatDatetimeToFilenamePart(datetime)}`;
+type FilenameOptions = {
+	isPoster?: boolean
+	suffix?: string | Array<string>
+};
+
+function makeFilename(url: string, username: string, datetime: string, options: FilenameOptions = {}) {
+	const basenameParts: Array<string | number> = [ 'instagram', username, formatDatetimeToBasenamePart(datetime) ];
 	const ext = getFileExtension(url);
 
-	if (isPoster) {
-		return `${basename}_poster.${ext}`;
+	options.isPoster && basenameParts.push('poster');
+
+	if (options.suffix) {
+		if (Array.isArray(options.suffix)) {
+			basenameParts.push(...options.suffix);
+		} else {
+			basenameParts.push(options.suffix);
+		}
 	}
 
-	return `${basename}.${ext}`;
+	return `${basenameParts.join('__')}.${ext}`;
+}
+
+function formatDatetimeToBasenamePart(datetime: string): string {
+	return datetime
+		.replace('T', '_')
+		.replace(/([:-])/g, '')
+		.replace(/\.\d+Z?$/, '');
 }
 
 // URL /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -493,13 +525,6 @@ function mapShortcodeToPostId(shortcode: string) {
 
 // UTILS ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-function formatDatetimeToFilenamePart(datetime: string): string {
-	return datetime
-		.replace('T', '_')
-		.replace(/([:-])/g, '')
-		.replace(/\.\d+Z?$/, '');
-}
-
 function getDatetime(takenAt: number) {
 	return new Date(takenAt).toISOString();
 }
@@ -511,6 +536,8 @@ function getFileExtension(url: string) {
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function sendMessage<T>(message: Record<string, unknown>): Promise<Result<T>> {
+	logDebug('sendMessage', message);
+
 	return chrome.runtime.sendMessage(message);
 }
 
