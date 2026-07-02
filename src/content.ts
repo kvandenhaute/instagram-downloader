@@ -135,7 +135,10 @@ async function downloadAllHighlights() {
 
 		return pMap(reels.reels, async (reel, index) => {
 			return download(reel.url, reels.username, getDatetime(reel.taken_at), {
-				suffix: [ encodeURIComponent(title), index.toString().padStart(3, '0') ],
+				suffix: [
+					encodeURIComponent(title.replace(/[^\p{L}\p{N}\s_-]/gu, '').trim()),
+					index.toString().padStart(3, '0'),
+				],
 			});
 		}, { concurrency: 3 });
 	}, { concurrency: 3 });
@@ -324,10 +327,8 @@ type FilenameOptions = {
 };
 
 function makeFilename(url: string, username: string, datetime: string, options: FilenameOptions = {}) {
-	const basenameParts: Array<string | number> = [ 'instagram', username, formatDatetimeToBasenamePart(datetime) ];
+	const basenameParts: Array<string> = [ 'instagram', username ];
 	const ext = getFileExtension(url);
-
-	options.isPoster && basenameParts.push('poster');
 
 	if (options.suffix) {
 		if (Array.isArray(options.suffix)) {
@@ -336,6 +337,9 @@ function makeFilename(url: string, username: string, datetime: string, options: 
 			basenameParts.push(options.suffix);
 		}
 	}
+
+	basenameParts.push(formatDatetimeToBasenamePart(datetime));
+	options.isPoster && basenameParts.push('poster');
 
 	return `${basenameParts.join('__')}.${ext}`;
 }
