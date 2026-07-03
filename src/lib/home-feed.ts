@@ -1,8 +1,9 @@
 import type { MediaElement, PageType } from './types';
-import { downloadByShortcode } from './media';
+
+import { makeDownloadButton } from './buttons';
 import { isValidMedia } from './helpers';
 import { logError } from './logger';
-import { makeDownloadButton } from './buttons';
+import { downloadByShortcode } from './media';
 import { getDownloadButtonParent } from './posts';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

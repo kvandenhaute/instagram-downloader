@@ -1,9 +1,10 @@
 import type { MediaElement, PageType } from './types';
+
+import { makeDownloadButton } from './buttons';
 import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from './dom';
-import { downloadByShortcode } from './media';
 import { isValidMedia } from './helpers';
 import { logDebug } from './logger';
-import { makeDownloadButton } from './buttons';
+import { downloadByShortcode } from './media';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 

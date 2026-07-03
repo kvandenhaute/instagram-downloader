@@ -1,4 +1,5 @@
 import type { Result } from '../types';
+
 import { logDebug } from './logger';
 
 export function getDatetime(takenAt: number) {

@@ -1,9 +1,10 @@
 import type { FilenameOptions } from './download';
-import { download } from './download';
-import { getDatetime, sendMessage } from './utils';
 import type { MediaElement, PageType } from './types';
+
 import { makeDownloadButton } from './buttons';
+import { download } from './download';
 import * as Posts from './posts';
+import { getDatetime, sendMessage } from './utils';
 
 export type Reel = { poster?: string, taken_at: number, url: string };
 

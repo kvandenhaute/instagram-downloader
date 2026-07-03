@@ -1,7 +1,8 @@
+import type { MediaElement } from './types';
+
+import { download } from './download';
 import { logDebug, logError } from './logger';
 import { getDatetime, sendMessage } from './utils';
-import type { MediaElement } from './types';
-import { download } from './download';
 
 export type MediaItem = {
 	carousel_media?: Array<MediaCarouselItem>

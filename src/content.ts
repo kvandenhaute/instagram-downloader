@@ -1,11 +1,12 @@
 import type { MediaElement, PageType } from './lib/types';
+
 import { isValidMedia } from './lib/helpers';
 import * as Highlights from './lib/highlights';
-import * as Posts from './lib/posts';
 import * as HomeFeed from './lib/home-feed';
-import * as UserFeed from './lib/user-feed';
-import * as Stories from './lib/stories';
+import * as Posts from './lib/posts';
 import * as Reels from './lib/reels';
+import * as Stories from './lib/stories';
+import * as UserFeed from './lib/user-feed';
 
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 

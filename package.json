@@ -23,6 +23,7 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@types/chrome": "0.2.0",
     "eslint": "10.6.0",
+    "eslint-plugin-simple-import-sort": "13.0.0",
     "npm-check-updates": "22.2.9",
     "typescript": "6.0.3",
     "typescript-eslint": "8.62.0",

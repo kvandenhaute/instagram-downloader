@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
+import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -12,6 +13,9 @@ export default tseslint.config(
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+    plugins: {
+        'simple-import-sort': simpleImportSort,
     },
     rules: {
         // Overrides t.o.v. recommended (andere opties)
@@ -41,6 +45,36 @@ export default tseslint.config(
 
         '@typescript-eslint/no-unused-expressions': 'off',
         '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+
+        'simple-import-sort/imports': [
+            'error',
+            {
+                groups: [
+                    ['^\\u0000'],
+                    [
+                        // side effect import (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import#import_a_module_for_its_side_effects_only)
+                        '^[@?\\w].*\\u0000$',
+                    ],
+                    [
+                        // type imports from packages
+                        '^@?\\w',
+                    ],
+                    [
+                        // Things that start with a letter (or digit or underscore), or `@` followed by a letter.
+                        '^node:',
+                    ],
+                    [
+                        // Node.js builtins prefixed with `node:`.
+                        '^.*\u0000$',
+                    ],
+                    [
+                        // type imports from source code
+                        '^',
+                    ], // Anything not matched in another group.
+                    ['^\\.'],
+                ],
+            },
+        ],
     },
   },
 );
