@@ -31,6 +31,12 @@ type GetUserFeedMessage = {
 	userId: number
 };
 
+type GetUserTagsFeedMessage = {
+	next?: string
+	type: 'get_user_tags_feed'
+	userId: number
+};
+
 type GetUserReelsMessage = {
 	type: 'get_user_reels'
 	userId: number
@@ -41,7 +47,7 @@ type GetWebProfileInfoMessage = {
 	username: string
 };
 
-type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserClipsMessage | GetUserFeedMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
+type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserClipsMessage | GetUserFeedMessage | GetUserReelsMessage | GetUserTagsFeedMessage | GetWebProfileInfoMessage;
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -69,6 +75,11 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_user_feed') {
 			void fetchInstagramUserFeed(message.userId, message.next)
+				.then(result => sendResponse(result));
+
+			return true;
+		} else if (message.type === 'get_user_tags_feed') {
+			void fetchInstagramUserTagsFeed(message.userId, message.next)
 				.then(result => sendResponse(result));
 
 			return true;
@@ -416,6 +427,34 @@ async function fetchInstagramUserFeed(userId: number, next?: string) {
 		items: fetchResult.data.items.map(item => makeMediaInfoResult(item)),
 		next: fetchResult.data.next_max_id,
 	} satisfies InstagramUserFeedResult);
+}
+
+// INSTAGRAM USER TAGS FEED /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type InstagramUserTagsFeedResponse = {
+	items: Array<InstagramMediaItem>
+	more_available: boolean
+	next_max_id: string
+};
+
+type InstagramUserTagsFeedResult = {
+	items: Array<InstagramMediaInfoResult>
+	next?: string
+};
+
+async function fetchInstagramUserTagsFeed(userId: number, next?: string) {
+	const fetchResult = await fetchInstagramApi<InstagramUserTagsFeedResponse>(`/api/v1/usertags/${userId}/feed/?&max_id=${next}`);
+
+	console.log(fetchResult);
+
+	if (!fetchResult.success) {
+		return fetchResult;
+	}
+
+	return makeSuccessResult({
+		items: fetchResult.data.items.map(item => makeMediaInfoResult(item)),
+		next: fetchResult.data.next_max_id,
+	} satisfies InstagramUserTagsFeedResult);
 }
 
 // INSTAGRAM WEB PROFILE INFO //////////////////////////////////////////////////////////////////////////////////////////

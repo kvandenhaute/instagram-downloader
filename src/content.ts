@@ -8,6 +8,7 @@ import * as Reels from './lib/content/reels';
 import * as Stories from './lib/content/stories';
 import * as UserClips from './lib/content/user-clips';
 import * as UserFeed from './lib/content/user-feed';
+import * as UserTagsFeed from './lib/content/user-tags-feed';
 import { isValidMedia } from './lib/helpers';
 
 const PROCESSED_ATTR = 'data-ig-dl-processed';
@@ -26,6 +27,7 @@ function scanPage() {
 
 		stack.appendChild(UserFeed.makeDownloadButton());
 		stack.appendChild(UserClips.makeDownloadButton());
+		stack.appendChild(UserTagsFeed.makeDownloadButton());
 		stack.appendChild(Highlights.makeDownloadAllHighlightsButton());
 
 		return;
