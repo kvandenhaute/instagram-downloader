@@ -36,8 +36,14 @@ export function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 	const root = queryFirst<HTMLElement>(document, '[role="dialog"] article > div > div:first-child', 'main > div > div:first-child > div > div');
 	if (!root || !root.contains(media)) {
 		return logDebug('Skip, no root found for media');
-	} else if (media instanceof HTMLImageElement && root.querySelector('video')) {
-		return logDebug('Skip as this is a poster, there is a download button for the video itself');
+	} else if (media instanceof HTMLImageElement) {
+		const li = media.closest('li');
+
+		if (!li && root.querySelector('video')) {
+			return logDebug('Skip as this is a poster, there is a download button for the video itself');
+		} else if (li && li.querySelector('video')) {
+			return logDebug('Skip as this is a poster, there is a download button for the video itself');
+		}
 	}
 
 	const downloadButton = makeDownloadButton(pageType);

@@ -50,7 +50,10 @@ export function addStoryDownloadButton(pageType: 'stories') {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadStory();
+		downloadButton.disabled = true;
+
+		void downloadStory()
+			.finally(() => (downloadButton.disabled = false));
 	});
 
 	root.appendChild(downloadButton);

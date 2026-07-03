@@ -1,7 +1,7 @@
 export function findFirstRelativeAncestor(from: HTMLElement, root: HTMLElement) {
 	let current = from.parentElement;
 	while (current) {
-		if (getComputedStyle(current).position === 'relative') {
+		if (current.tagName !== 'A' && getComputedStyle(current).position === 'relative') {
 			return current;
 		} else if (current === root) {
 			return current;

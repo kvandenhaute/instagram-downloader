@@ -1,31 +1,32 @@
 .ig-dl-btn {
 	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
 	aspect-ratio: 1;
 	border: 0;
 	border-radius: 50%;
-	background-color: rgba(43, 48, 54, .5);
-	color: rgba(255, 255, 255, 0.75);
+	background-color: rgba(255, 255, 255, .1);
+	color: #fff;
 	transition: all 0.25s;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	font-size: 16px;
+	line-height: 1.25;
 	cursor: pointer;
-	z-index: 10;
+	z-index: 2147483647;
 }
 
 .ig-dl-btn svg {
-	width: 48px;
-	height: 48px;
+	width: 32px;
+	height: 32px;
 }
 
 .ig-dl-btn:has(span) {
 	display: inline-flex;
 	align-items: center;
 	gap: 1ex;
-	padding: 10px;
+	padding: 12px;
 	aspect-ratio: unset;
-	border-radius: 16px;
-	background-color: darkmagenta;
+	border-radius: 8px;
+	color: rgb(245, 245, 245);
+	user-select: text;
 }
 
 .ig-dl-btn:has(span) svg {
@@ -36,6 +37,55 @@
 .ig-dl-btn[disabled] {
 	cursor: progress;
 }
+
+.ig-dl-btn--home-feed,
+.ig-dl-btn--post,
+.ig-dl-btn--reels {
+	background-color: rgba(43, 48, 54, 0.5);
+	color: #fff;
+	/*background-color: rgba(255, 255, 255, 0.75);*/
+	/*color: rgba(43, 48, 54, .5);*/
+}
+
+.ig-dl-btn--home-feed svg path,
+.ig-dl-btn--post svg path,
+.ig-dl-btn--reels svg path {
+	/*stroke: rgba(0, 0, 0, .5)*/
+	stroke: #fff
+}
+
+.ig-dl-btn--home-feed:hover,
+.ig-dl-btn--post:hover,
+.ig-dl-btn--reels:hover {
+	/*background-color: rgb(255, 255, 255);*/
+	background-color: rgba(43, 48, 54, 0.875);
+}
+
+/*.ig-dl-btn--home-feed:hover svg path,*/
+/*.ig-dl-btn--post:hover svg path,*/
+/*.ig-dl-btn--reels:hover svg path {*/
+/*	stroke: rgb(0, 0, 0)*/
+/*}*/
+
+.ig-dl-btn--home-feed {
+	bottom: 10px;
+	right: 10px;
+}
+
+.ig-dl-btn--post,
+.ig-dl-btn--reels {
+	top: 10px;
+	left: 10px;
+}
+
+.ig-dl-btn--stories {
+	top: 16px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+
+/* TODO */
 
 .ig-dl-btn--highlights {
 	top: 80px;
@@ -49,26 +99,3 @@
 	transform: none;
 }
 
-.ig-dl-btn--post,
-.ig-dl-btn--reels {
-	top: 10px;
-	left: 10px;
-	transform: none;
-	background-color: rgba(255, 255, 255, 0.75);
-	color: rgba(43, 48, 54, .5);
-}
-
-.ig-dl-btn--post svg path,
-.ig-dl-btn--reels svg path {
-	stroke: rgba(0, 0, 0, .5)
-}
-
-.ig-dl-btn--post:hover,
-.ig-dl-btn--reels:hover {
-	background-color: rgb(255, 255, 255);
-}
-
-.ig-dl-btn--post:hover svg path,
-.ig-dl-btn--reels:hover svg path {
-	stroke: rgb(0, 0, 0)
-}
