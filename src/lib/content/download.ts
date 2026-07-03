@@ -1,6 +1,6 @@
-import type { Url } from './types';
+import type { Url } from '../types';
 
-import { logDebug } from './logger';
+import { logDebug } from '../logger';
 
 export async function downloadFile(url: Url, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
 	logDebug(url, filenameOptions);

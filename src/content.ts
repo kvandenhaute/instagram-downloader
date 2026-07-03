@@ -1,13 +1,13 @@
 import type { MediaElement, PageType } from './lib/types';
 
+import * as Highlights from './lib/content/highlights';
+import * as HomeFeed from './lib/content/home-feed';
+import * as Posts from './lib/content/posts';
+import { createDownloadButtonStack } from './lib/content/profile';
+import * as Reels from './lib/content/reels';
+import * as Stories from './lib/content/stories';
+import * as UserFeed from './lib/content/user-feed';
 import { isValidMedia } from './lib/helpers';
-import * as Highlights from './lib/highlights';
-import * as HomeFeed from './lib/home-feed';
-import * as Posts from './lib/posts';
-import { createDownloadButtonStack } from './lib/profile';
-import * as Reels from './lib/reels';
-import * as Stories from './lib/stories';
-import * as UserFeed from './lib/user-feed';
 
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 

@@ -1,8 +1,8 @@
-import type { MediaElement, PageType, Url } from './types';
+import type { MediaElement, PageType, Url } from '../types';
 
-import { isValidMedia } from './helpers';
-import { makeDownloadButton } from './helpers/buttons';
-import { logError } from './logger';
+import { isValidMedia } from '../helpers';
+import { makeDownloadButton } from '../helpers/buttons';
+import { logError } from '../logger';
 import * as Media from './media';
 import * as Posts from './posts';
 

@@ -43,7 +43,7 @@
 .ig-dl-btn--reels {
 	background-color: rgba(43, 48, 54, 0.5);
 	color: #fff;
-	/*background-color: rgba(255, 255, 255, 0.75);*/
+	/*server-color: rgba(255, 255, 255, 0.75);*/
 	/*color: rgba(43, 48, 54, .5);*/
 }
 
@@ -57,7 +57,7 @@
 .ig-dl-btn--home-feed:hover,
 .ig-dl-btn--post:hover,
 .ig-dl-btn--reels:hover {
-	/*background-color: rgb(255, 255, 255);*/
+	/*server-color: rgb(255, 255, 255);*/
 	background-color: rgba(43, 48, 54, 0.875);
 }
 
