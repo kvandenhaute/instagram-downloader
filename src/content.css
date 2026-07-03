@@ -43,29 +43,19 @@
 .ig-dl-btn--reels {
 	background-color: rgba(43, 48, 54, 0.5);
 	color: #fff;
-	/*server-color: rgba(255, 255, 255, 0.75);*/
-	/*color: rgba(43, 48, 54, .5);*/
 }
 
 .ig-dl-btn--home-feed svg path,
 .ig-dl-btn--post svg path,
 .ig-dl-btn--reels svg path {
-	/*stroke: rgba(0, 0, 0, .5)*/
 	stroke: #fff
 }
 
 .ig-dl-btn--home-feed:hover,
 .ig-dl-btn--post:hover,
 .ig-dl-btn--reels:hover {
-	/*server-color: rgb(255, 255, 255);*/
 	background-color: rgba(43, 48, 54, 0.875);
 }
-
-/*.ig-dl-btn--home-feed:hover svg path,*/
-/*.ig-dl-btn--post:hover svg path,*/
-/*.ig-dl-btn--reels:hover svg path {*/
-/*	stroke: rgb(0, 0, 0)*/
-/*}*/
 
 .ig-dl-btn--home-feed {
 	bottom: 10px;

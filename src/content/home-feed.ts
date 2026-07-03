@@ -18,7 +18,7 @@ async function downloadPost(media: MediaElement, root: HTMLElement) {
 
 	const listElement = media.closest('li');
 	if (!listElement) {
-		return Media.downloadOne(anchor.href as Url);
+		return Media.downloadOneByShortcode(anchor.href as Url);
 	}
 
 	return downloadFromCarousel(root, media, anchor.href as Url);
@@ -34,7 +34,7 @@ async function downloadFromCarousel(root: HTMLElement, media: MediaElement, url:
 		return logError('Could not find carousel step');
 	}
 
-	return Media.downloadOneFromCarousel(
+	return Media.downloadOneFromCarouselByShortcode(
 		Array.from(step.parentElement!.children).indexOf(step),
 		url,
 	);

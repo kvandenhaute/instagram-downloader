@@ -1,14 +1,12 @@
 import pMap from 'p-map';
 
-import type { MediaCarouselItem, MediaItem } from '../lib/types';
 import type { GetUserTagsFeedMessage, GetUserTagsFeedMessageResponse } from '../messages';
-import type { FilenameOptions } from './download';
 
 import { logError } from '../lib/logger';
-import { downloadFile } from './download';
 import * as Buttons from './helpers/buttons';
+import { downloadManyFromCarousel, downloadOne, hasCarousel } from './media';
 import { getWebProfileInfo } from './profile';
-import { getDatetime, sendMessage } from './utils';
+import { sendMessage } from './utils';
 
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -39,11 +37,11 @@ async function downloadAllPosts() {
 		const nextUserFeedResponse: Promise<GetUserTagsFeedMessageResponse> | null = typeof response.next === 'string' ? getUserTagsFeed(webProfileInfo.userId, response.next) : null;
 
 		await pMap(response.items, async item => {
-			if (item.carousel_media) {
-				return downloadCarouselMedia($username, item.carousel_media);
+			if (hasCarousel(item)) {
+				return downloadManyFromCarousel(item);
 			}
 
-			return downloadMedia($username, item);
+			return downloadOne(item);
 		}, { concurrency: 3 });
 
 		if (!nextUserFeedResponse) {
@@ -56,33 +54,6 @@ async function downloadAllPosts() {
 	const userFeed = await getUserTagsFeed(webProfileInfo.userId);
 
 	return _downloadPosts(username, userFeed);
-}
-
-async function downloadCarouselMedia(username: string, items: Array<MediaCarouselItem>) {
-	return pMap(items, (media, index) => {
-		return downloadMedia(username, media, {
-			suffix: [
-				'carousel',
-				index.toString().padStart(2, '0'),
-			],
-		});
-	}, { concurrency: 2 });
-}
-
-async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 'taken_at' | 'video'>, filenameOptions: FilenameOptions = {}) {
-	const datetime = getDatetime(media.taken_at);
-
-	if (media.video) {
-		if (media.image) {
-			console.log(media.taken_at);
-
-			await downloadFile(media.image, username, datetime, { ...filenameOptions, isPoster: true });
-		}
-
-		return downloadFile(media.video, username, datetime, filenameOptions);
-	} else if (media.image) {
-		return downloadFile(media.image, username, datetime, filenameOptions);
-	}
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

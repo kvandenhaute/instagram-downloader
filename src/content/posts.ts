@@ -15,7 +15,7 @@ export function download(media: MediaElement) {
 
 	const listElement = media.closest('li');
 	if (!listElement) {
-		return Media.downloadOne();
+		return Media.downloadOneByShortcode();
 	}
 
 	return downloadCarouselMedia();
@@ -25,7 +25,7 @@ async function downloadCarouselMedia() {
 	const searchParams = new URL(window.location.href).searchParams;
 	const index = searchParams.get('img_index');
 
-	return Media.downloadOneFromCarousel(
+	return Media.downloadOneFromCarouselByShortcode(
 		index ? parseInt(index, 10) - 1 : 0,
 	);
 }

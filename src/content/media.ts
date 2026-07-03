@@ -1,4 +1,6 @@
-import type { MediaItem, Url } from '../lib/types';
+import pMap from 'p-map';
+
+import type { MediaCarouselItem, MediaItem, Url } from '../lib/types';
 import type { GetMediaInfoMessage, GetMediaInfoMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 
@@ -36,7 +38,7 @@ async function getMediaInfo(shortcode: string) {
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export async function downloadOne(url?: Url) {
+export async function downloadOneByShortcode(url?: Url) {
 	const shortcode = findShortcodeInUrl(url);
 	if (!shortcode) {
 		return logError('Could not find shortcode in url');
@@ -44,10 +46,10 @@ export async function downloadOne(url?: Url) {
 
 	const mediaInfo = await getMediaInfo(shortcode);
 
-	return download(mediaInfo);
+	return downloadOne(mediaInfo);
 }
 
-export async function downloadOneFromCarousel(index: number, url?: Url) {
+export async function downloadOneFromCarouselByShortcode(index: number, url?: Url) {
 	const shortcode = findShortcodeInUrl(url);
 	if (!shortcode) {
 		return logError('Could not find shortcode in url');
@@ -64,19 +66,17 @@ export async function downloadOneFromCarousel(index: number, url?: Url) {
 		return logError(`Could not find carousel media item ${index} for shortcode ${shortcode}`);
 	}
 
-	return download({
+	return downloadOne({
 		...mediaItem,
 		username: mediaInfo.username,
 	}, { index });
 }
 
-async function download(media: MediaItem, filenameOptions: FilenameOptions = {}) {
+export async function downloadOne(media: MediaItem, filenameOptions: FilenameOptions = {}) {
 	const datetime = getDatetime(media.taken_at);
 
 	if (media.video) {
 		if (media.image) {
-			console.log(media.taken_at);
-
 			await downloadFile(media.image, media.username, datetime, { ...filenameOptions, isPoster: true });
 		}
 
@@ -84,6 +84,15 @@ async function download(media: MediaItem, filenameOptions: FilenameOptions = {})
 	} else if (media.image) {
 		return downloadFile(media.image, media.username, datetime, filenameOptions);
 	}
+}
+
+export async function downloadManyFromCarousel(media: SetRequired<MediaItem, 'carousel_media'>) {
+	return pMap(media.carousel_media, (item, index) => {
+		return downloadOne({
+			...item,
+			username: media.username,
+		}, { index });
+	}, { concurrency: 2 });
 }
 
 // SHORT CODE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -105,4 +114,10 @@ function mapShortcodeToPostId(shortcode: string) {
 	}
 
 	return id.toString();
+}
+
+// HELPERS \\\\
+
+export function hasCarousel(item: MediaItem): item is SetRequired<MediaItem, 'carousel_media'> {
+	return !!item.carousel_media;
 }
