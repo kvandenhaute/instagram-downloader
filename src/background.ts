@@ -2,12 +2,12 @@ import type { Message } from './messages';
 import type { StoredHeaders } from './server/lib/types';
 
 import { AUTH_HEADER_NAMES, INSTAGRAM_ORIGIN } from './server/instagram/api';
-import { fetchPost } from './server/instagram/posts';
-import { fetchInstagramHighlightReels, fetchReels } from './server/instagram/reels';
-import { fetchUserClips } from './server/instagram/user-clips';
-import { fetchUserFeed } from './server/instagram/user-feed';
-import { fetchUserTagsFeed } from './server/instagram/user-tags-feed';
-import { fetchWebProfileInfo } from './server/instagram/web-profile';
+import { fetchPost } from './server/posts';
+import { fetchInstagramHighlightReels, fetchReels } from './server/reels';
+import { fetchUserClips } from './server/user-clips';
+import { fetchUserFeed } from './server/user-feed';
+import { fetchUserTagsFeed } from './server/user-tags-feed';
+import { fetchWebProfileInfo } from './server/web-profile';
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {

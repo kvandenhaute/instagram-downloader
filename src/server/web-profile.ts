@@ -1,7 +1,7 @@
-import type { GetWebProfileInfoMessageResponse } from '../../messages';
+import type { GetWebProfileInfoMessageResponse } from '../messages';
 
-import { makeSuccessResult } from '../lib/helpers';
-import { fetchApi } from './api';
+import { fetchApi } from './instagram/api';
+import { makeSuccessResult } from './lib/helpers';
 
 type WebProfileInfoResponse = {
 	data: {

@@ -1,10 +1,10 @@
-import type { Url } from '../../lib/types';
-import type { GetUserReelsMessageResponse } from '../../messages';
-import type { InstagramMediaItem } from './types';
+import type { Url } from '../lib/types';
+import type { GetUserReelsMessageResponse } from '../messages';
+import type { InstagramMediaItem } from './instagram/types';
 
-import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
-import { fetchApi } from './api';
-import { findBestCandidate } from './helpers';
+import { fetchApi } from './instagram/api';
+import { findBestCandidate } from './instagram/helpers';
+import { makeErrorResult, makeSuccessResult } from './lib/helpers';
 
 type HighlightResponse = {
 	highlights_info: {

@@ -1,9 +1,8 @@
-import type { GetMediaInfoMessageResponse } from '../../messages';
-import type { InstagramMediaItem } from './types';
+import type { GetMediaInfoMessageResponse } from '../messages';
+import type { InstagramMediaItem } from './instagram/types';
 
-import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
-import { fetchApi } from './api';
-import { makeMediaItem } from './helpers';
+import { fetchApi } from './instagram/api';
+import { makeErrorResult, makeMediaItem, makeSuccessResult } from './lib/helpers';
 
 type PostResponse = {
 	items: Array<InstagramMediaItem>

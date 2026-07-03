@@ -1,9 +1,8 @@
-import type { GetUserClipsMessageResponse } from '../../messages';
-import type { InstagramMediaItem } from './types';
+import type { GetUserClipsMessageResponse } from '../messages';
+import type { InstagramMediaItem } from './instagram/types';
 
-import { makeSuccessResult } from '../lib/helpers';
-import { fetchApi } from './api';
-import { makeMediaItem } from './helpers';
+import { fetchApi } from './instagram/api';
+import { makeMediaItem, makeSuccessResult } from './lib/helpers';
 
 type UserClipsResponse = {
 	items: Array<{
