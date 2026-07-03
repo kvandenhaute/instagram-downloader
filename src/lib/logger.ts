@@ -1,4 +1,4 @@
-const DEBUG = true;
+const DEBUG = false;
 
 export function logDebug(...data: Array<unknown>) {
 	DEBUG && console.debug('[ig-dl]', ...data);
