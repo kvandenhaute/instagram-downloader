@@ -27,14 +27,3 @@ export type InstagramMediaVersion = {
 	width: number
 	height: number
 };
-
-export type MediaItemResult = MediaVersion & {
-	carousel_media?: Array<MediaVersion>
-	username: string
-};
-
-type MediaVersion = {
-	image?: string
-	taken_at: number
-	video?: string
-};

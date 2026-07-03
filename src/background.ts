@@ -1,5 +1,5 @@
 import type { Message } from './messages';
-import type { StoredHeaders } from './server/types';
+import type { StoredHeaders } from './server/lib/types';
 
 import { AUTH_HEADER_NAMES, INSTAGRAM_ORIGIN } from './server/instagram/api';
 import { fetchPost } from './server/instagram/posts';

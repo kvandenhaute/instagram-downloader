@@ -1,5 +1,5 @@
 import type { Result } from '../../lib/types';
-import type { StoredHeaders } from '../types';
+import type { StoredHeaders } from '../lib/types';
 
 import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
 
