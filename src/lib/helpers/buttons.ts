@@ -1,4 +1,4 @@
-import type { PageType } from './types';
+import type { PageType } from '../types';
 
 export const BTN_CLASS_NAME = 'ig-dl-btn';
 

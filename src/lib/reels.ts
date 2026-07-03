@@ -1,8 +1,8 @@
 import type { FilenameOptions } from './download';
 import type { MediaElement, PageType, Url } from './types';
 
-import { makeDownloadButton } from './buttons';
 import { downloadFile } from './download';
+import { makeDownloadButton } from './helpers/buttons';
 import * as Posts from './posts';
 import { getDatetime, sendMessage } from './utils';
 

@@ -1,4 +1,4 @@
-import { BTN_CLASS_NAME, makeDownloadButton } from './buttons';
+import { BTN_CLASS_NAME, makeDownloadButton } from './helpers/buttons';
 import { logDebug, logError } from './logger';
 import { getWebProfileInfo } from './profile';
 import { downloadReel, getUserReels } from './reels';

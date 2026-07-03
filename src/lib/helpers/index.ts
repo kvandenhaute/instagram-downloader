@@ -1,4 +1,4 @@
-import type { MediaElement } from './types';
+import type { MediaElement } from '../types';
 
 export function isValidMedia(media: MediaElement) {
 	if (media instanceof HTMLImageElement && media.alt.endsWith('profile picture')) {

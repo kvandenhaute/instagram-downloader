@@ -3,8 +3,8 @@ import pMap from 'p-map';
 import type { FilenameOptions } from './download';
 import type { MediaCarouselItem, MediaItem } from './media';
 
-import * as Buttons from './buttons';
 import { downloadFile } from './download';
+import * as Buttons from './helpers/buttons';
 import { logError } from './logger';
 import { getWebProfileInfo } from './profile';
 import { getDatetime, sendMessage } from './utils';

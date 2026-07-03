@@ -1,7 +1,7 @@
 import pMap from 'p-map';
 
-import { BTN_CLASS_NAME, makeDownloadButton } from './buttons';
 import { downloadFile } from './download';
+import { BTN_CLASS_NAME, makeDownloadButton } from './helpers/buttons';
 import { logError } from './logger';
 import { downloadReel, type Reel } from './reels';
 import { getDatetime, sendMessage } from './utils';
