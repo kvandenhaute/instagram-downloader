@@ -1,4 +1,4 @@
-import { FailureResult, Result, SuccessResult } from './types';
+import type { FailureResult, Result, SuccessResult } from './types';
 
 const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
 const INSTAGRAM_ORIGIN = 'https://www.instagram.com';
@@ -7,6 +7,11 @@ type DownloadMessage = {
 	type: 'download'
 	url: string
 	filename: string
+};
+
+type GetHighlightReelsMessage = {
+	type: 'get_highlight_reels'
+	highlightId: string
 };
 
 type GetMediaInfoMessage = {
@@ -19,9 +24,10 @@ type GetWebProfileInfoMessage = {
 	username: string
 };
 
-type GetHighlightReelsMessage = {
-	type: 'get_highlight_reels'
-	highlightId: string
+type GetUserFeedMessage = {
+	next?: string
+	type: 'get_user_feed'
+	userId: number
 };
 
 type GetUserReelsMessage = {
@@ -29,7 +35,7 @@ type GetUserReelsMessage = {
 	userId: number
 };
 
-type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
+type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserFeedMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -47,6 +53,11 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_highlight_reels') {
 			void fetchInstagramHighlightReels(message.highlightId)
+				.then(result => sendResponse(result));
+
+			return true;
+		} else if (message.type === 'get_user_feed') {
+			void fetchInstagramUserFeed(message.userId, message.next)
 				.then(result => sendResponse(result));
 
 			return true;
@@ -113,8 +124,6 @@ async function fetchInstagramApi<T>(path: `/api/v1/${string}`): Promise<Result<T
 
 		const data = await response.json() as T;
 
-		console.log(path, data);
-
 		return makeSuccessResult(data);
 	} catch (err) {
 		return makeErrorResult(err, 'Instagram fetch: ');
@@ -152,6 +161,7 @@ type InstagramCarouselItem = {
 		candidates: Array<InstagramMediaVersion>
 	}
 	pk: number
+	taken_at: number
 	video_url?: string
 	video_versions?: Array<InstagramMediaVersion>
 };
@@ -177,6 +187,7 @@ type InstagramMediaInfoItem = {
 type InstagramMediaInfoResult = {
 	carousel_media?: Array<{
 		image?: string
+		taken_at: number
 		video?: string
 	}>
 	image?: string
@@ -196,16 +207,33 @@ async function fetchInstagramMediaInfo(postId: string) {
 		return makeErrorResult(`Unexpected empty response for postId ${postId}`);
 	}
 
-	return makeSuccessResult({
-		carousel_media: item.carousel_media?.map(media => ({
-			image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
-			video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
-		})),
-		image: item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url,
-		taken_at: item.taken_at,
+	return makeSuccessResult(makeMediaInfoResult(item));
+}
+
+function makeMediaInfoResult(item: InstagramMediaInfoItem) {
+	return {
+		carousel_media: makeCarouselResult(item.carousel_media),
+		image: makeImageResult(item),
+		taken_at: item.taken_at * 1000,
 		username: item.user.username,
-		video: item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url,
-	} satisfies InstagramMediaInfoResult);
+		video: makeVideoResult(item),
+	} satisfies InstagramMediaInfoResult;
+}
+
+function makeCarouselResult(items?: Array<InstagramCarouselItem>) {
+	return items?.map(media => ({
+		image: media.image_versions2 && findBestCandidate(media.image_versions2.candidates).url,
+		taken_at: media.taken_at * 1000,
+		video: media.video_versions ? findBestCandidate(media.video_versions).url : media.video_url,
+	}));
+}
+
+function makeImageResult(item: InstagramMediaInfoItem) {
+	return item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url;
+}
+
+function makeVideoResult(item: InstagramMediaInfoItem) {
+	return item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url;
 }
 
 // INSTAGRAM REELS /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,7 +287,7 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 		if (reel.original_media_type === 2 && reel.video_versions) {
 			return {
 				pk: reel.pk,
-				taken_at: reel.taken_at,
+				taken_at: reel.taken_at * 1000,
 				url: findBestCandidate(reel.video_versions).url,
 				poster: findBestCandidate(reel.image_versions2.candidates).url,
 			};
@@ -267,7 +295,7 @@ function processReelsMediaItem(reelsMedia: Array<InstagramReelsMediaItem>) {
 
 		return {
 			pk: reel.pk,
-			taken_at: reel.taken_at,
+			taken_at: reel.taken_at * 1000,
 			url: findBestCandidate(reel.image_versions2.candidates).url,
 		};
 	});
@@ -308,6 +336,31 @@ type InstagramReelMediaItem = {
 	taken_at: number
 	video_versions?: Array<InstagramMediaVersion>
 };
+
+// INSTAGRAM USER FEED /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type InstagramUserFeedResponse = {
+	items: Array<InstagramMediaInfoItem>
+	more_available: boolean
+	next_max_id: string
+};
+
+type InstagramUserFeedResult = {
+	items: Array<InstagramMediaInfoResult>
+	next?: string
+};
+
+async function fetchInstagramUserFeed(userId: number, next?: string) {
+	const fetchResult = await fetchInstagramApi<InstagramUserFeedResponse>(`/api/v1/feed/user/${userId}?&max_id=${next}`);
+	if (!fetchResult.success) {
+		return fetchResult;
+	}
+
+	return makeSuccessResult({
+		items: fetchResult.data.items.map(item => makeMediaInfoResult(item)),
+		next: fetchResult.data.next_max_id,
+	} satisfies InstagramUserFeedResult);
+}
 
 // INSTAGRAM WEB PROFILE INFO //////////////////////////////////////////////////////////////////////////////////////////
 

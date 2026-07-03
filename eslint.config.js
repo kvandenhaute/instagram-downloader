@@ -40,6 +40,7 @@ export default tseslint.config(
         '@stylistic/wrap-regex': 'error',
 
         '@typescript-eslint/no-unused-expressions': 'off',
+        '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
     },
   },
 );
