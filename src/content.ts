@@ -6,6 +6,7 @@ import * as Posts from './lib/content/posts';
 import { createDownloadButtonStack } from './lib/content/profile';
 import * as Reels from './lib/content/reels';
 import * as Stories from './lib/content/stories';
+import * as UserClips from './lib/content/user-clips';
 import * as UserFeed from './lib/content/user-feed';
 import { isValidMedia } from './lib/helpers';
 
@@ -24,6 +25,7 @@ function scanPage() {
 		}
 
 		stack.appendChild(UserFeed.makeDownloadButton());
+		stack.appendChild(UserClips.makeDownloadButton());
 		stack.appendChild(Highlights.makeDownloadAllHighlightsButton());
 
 		return;

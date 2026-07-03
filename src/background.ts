@@ -1,4 +1,3 @@
-
 import type { FailureResult, Result, SuccessResult } from './lib/types';
 
 const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
@@ -20,9 +19,10 @@ type GetMediaInfoMessage = {
 	postId: string
 };
 
-type GetWebProfileInfoMessage = {
-	type: 'get_web_profile_info'
-	username: string
+type GetUserClipsMessage = {
+	next?: string
+	type: 'get_user_clips'
+	userId: number
 };
 
 type GetUserFeedMessage = {
@@ -36,7 +36,12 @@ type GetUserReelsMessage = {
 	userId: number
 };
 
-type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserFeedMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
+type GetWebProfileInfoMessage = {
+	type: 'get_web_profile_info'
+	username: string
+};
+
+type Message = DownloadMessage | GetMediaInfoMessage | GetHighlightReelsMessage | GetUserClipsMessage | GetUserFeedMessage | GetUserReelsMessage | GetWebProfileInfoMessage;
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -54,6 +59,11 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_highlight_reels') {
 			void fetchInstagramHighlightReels(message.highlightId)
+				.then(result => sendResponse(result));
+
+			return true;
+		} else if (message.type === 'get_user_clips') {
+			void fetchInstagramUserClips(message.userId, message.next)
 				.then(result => sendResponse(result));
 
 			return true;
@@ -114,11 +124,19 @@ type InstagramMediaVersion = {
 	height: number
 };
 
-async function fetchInstagramApi<T>(path: `/api/v1/${string}`): Promise<Result<T>> {
+async function fetchInstagramApi<T>(path: `/api/v1/${string}`, body?: string): Promise<Result<T>> {
 	const headers = await getAuthHeaders();
+	if (body) {
+		headers[ 'content-type' ] = 'application/x-www-form-urlencoded';
+	}
 
 	try {
-		const response = await fetch(INSTAGRAM_ORIGIN + path, { headers, credentials: 'include' });
+		const response = await fetch(INSTAGRAM_ORIGIN + path, {
+			headers,
+			credentials: 'include',
+			method: body ? 'POST' : 'GET',
+			body,
+		});
 		if (!response.ok) {
 			return makeErrorResult(response.statusText);
 		}
@@ -168,10 +186,10 @@ type InstagramCarouselItem = {
 };
 
 type InstagramMediaInfoResponse = {
-	items: Array<InstagramMediaInfoItem>
+	items: Array<InstagramMediaItem>
 };
 
-type InstagramMediaInfoItem = {
+type InstagramMediaItem = {
 	carousel_media?: Array<InstagramCarouselItem>
 	image_versions2?: {
 		candidates: Array<InstagramMediaVersion>
@@ -211,7 +229,7 @@ async function fetchInstagramMediaInfo(postId: string) {
 	return makeSuccessResult(makeMediaInfoResult(item));
 }
 
-function makeMediaInfoResult(item: InstagramMediaInfoItem) {
+function makeMediaInfoResult(item: InstagramMediaItem) {
 	return {
 		carousel_media: makeCarouselResult(item.carousel_media),
 		image: makeImageResult(item),
@@ -229,11 +247,11 @@ function makeCarouselResult(items?: Array<InstagramCarouselItem>) {
 	}));
 }
 
-function makeImageResult(item: InstagramMediaInfoItem) {
+function makeImageResult(item: InstagramMediaItem) {
 	return item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url;
 }
 
-function makeVideoResult(item: InstagramMediaInfoItem) {
+function makeVideoResult(item: InstagramMediaItem) {
 	return item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url;
 }
 
@@ -338,10 +356,47 @@ type InstagramReelMediaItem = {
 	video_versions?: Array<InstagramMediaVersion>
 };
 
+// INSTAGRAM USER CLIPS /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type InstagramClipItem = {
+	media: InstagramMediaItem
+};
+
+type InstagramClipsFeedResponse = {
+	items: Array<InstagramClipItem>
+	paging_info: {
+		max_id: string
+		more_available: boolean
+	}
+};
+
+type InstagramClipsFeedResult = {
+	items: Array<InstagramMediaInfoResult>
+	next?: string
+};
+
+async function fetchInstagramUserClips(userId: number, next?: string) {
+	const searchParams = new URLSearchParams();
+	searchParams.set('target_user_id', userId.toString());
+	searchParams.set('page_size', '12');
+	searchParams.set('include_feed_video', '1');
+	next && searchParams.set('max_id', next);
+
+	const fetchResult = await fetchInstagramApi<InstagramClipsFeedResponse>('/api/v1/clips/user/', searchParams.toString());
+	if (!fetchResult.success) {
+		return fetchResult;
+	}
+
+	return makeSuccessResult({
+		items: fetchResult.data.items.map(item => makeMediaInfoResult(item.media)),
+		next: fetchResult.data.paging_info.max_id,
+	} satisfies InstagramClipsFeedResult);
+}
+
 // INSTAGRAM USER FEED /////////////////////////////////////////////////////////////////////////////////////////////////
 
 type InstagramUserFeedResponse = {
-	items: Array<InstagramMediaInfoItem>
+	items: Array<InstagramMediaItem>
 	more_available: boolean
 	next_max_id: string
 };
