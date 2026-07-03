@@ -1,10 +1,10 @@
-import type { MediaElement, PageType } from '../types';
+import type { MediaElement, PageType } from '../lib/types';
 
-import { isValidMedia } from '../helpers';
-import { makeDownloadButton } from '../helpers/buttons';
-import { logDebug } from '../logger';
-import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from '../utils/dom';
+import { logDebug } from '../lib/logger';
+import { isValidMedia } from './helpers';
+import { makeDownloadButton } from './helpers/buttons';
 import * as Media from './media';
+import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from './utils/dom';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 

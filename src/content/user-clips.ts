@@ -3,11 +3,11 @@ import pMap from 'p-map';
 import type { FilenameOptions } from './download';
 import type { MediaCarouselItem, MediaItem } from './media';
 
-import * as Buttons from '../helpers/buttons';
-import { logError } from '../logger';
-import { getDatetime, sendMessage } from '../utils';
+import { logError } from '../lib/logger';
 import { downloadFile } from './download';
+import * as Buttons from './helpers/buttons';
 import { getWebProfileInfo } from './profile';
+import { getDatetime, sendMessage } from './utils';
 
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -16,8 +16,8 @@ type UserFeedResponse = {
 	next?: string
 };
 
-async function getUserTagsFeed(userId: number, next?: string) {
-	const sendMessageResult = await sendMessage<UserFeedResponse>({ type: 'get_user_tags_feed', userId, next });
+async function getUserClips(userId: number, next?: string) {
+	const sendMessageResult = await sendMessage<UserFeedResponse>({ type: 'get_user_clips', userId, next });
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -27,7 +27,7 @@ async function getUserTagsFeed(userId: number, next?: string) {
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-async function downloadAllPosts() {
+async function downloadAllClips() {
 	const username = window.location.href.match(/instagram\.com\/([^/?]+)/)?.[ 1 ];
 	if (!username) {
 		return logError('No username found in url');
@@ -35,8 +35,8 @@ async function downloadAllPosts() {
 
 	const webProfileInfo = await getWebProfileInfo(username);
 
-	async function _downloadPosts($username: string, response: UserFeedResponse): Promise<unknown> {
-		const nextUserFeedResponse: Promise<UserFeedResponse> | null = typeof response.next === 'string' ? getUserTagsFeed(webProfileInfo.userId, response.next) : null;
+	async function _downloadClips($username: string, response: UserFeedResponse): Promise<unknown> {
+		const nextUserClipsResponse: Promise<UserFeedResponse> | null = typeof response.next === 'string' ? getUserClips(webProfileInfo.userId, response.next) : null;
 
 		await pMap(response.items, async item => {
 			if (item.carousel_media) {
@@ -46,16 +46,16 @@ async function downloadAllPosts() {
 			return downloadMedia($username, item);
 		}, { concurrency: 3 });
 
-		if (!nextUserFeedResponse) {
+		if (!nextUserClipsResponse) {
 			return;
 		}
 
-		return nextUserFeedResponse.then($response => _downloadPosts($username, $response));
+		return nextUserClipsResponse.then($response => _downloadClips($username, $response));
 	}
 
-	const userFeed = await getUserTagsFeed(webProfileInfo.userId);
+	const userClips = await getUserClips(webProfileInfo.userId);
 
-	return _downloadPosts(username, userFeed);
+	return _downloadClips(username, userClips);
 }
 
 async function downloadCarouselMedia(username: string, items: Array<MediaCarouselItem>) {
@@ -88,14 +88,14 @@ async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 export function makeDownloadButton() {
-	const downloadButton = Buttons.makeDownloadButton('profile', { className: 'user-tags-feed', text: 'Tagged' });
+	const downloadButton = Buttons.makeDownloadButton('profile', { className: 'user-clips', text: 'Clips' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
 
 		downloadButton.disabled = true;
 
-		void downloadAllPosts()
+		void downloadAllClips()
 			.finally(() => (downloadButton.disabled = false));
 	});
 

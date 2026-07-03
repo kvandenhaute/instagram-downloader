@@ -3,11 +3,11 @@ import pMap from 'p-map';
 import type { FilenameOptions } from './download';
 import type { MediaCarouselItem, MediaItem } from './media';
 
-import * as Buttons from '../helpers/buttons';
-import { logError } from '../logger';
-import { getDatetime, sendMessage } from '../utils';
+import { logError } from '../lib/logger';
 import { downloadFile } from './download';
+import * as Buttons from './helpers/buttons';
 import { getWebProfileInfo } from './profile';
+import { getDatetime, sendMessage } from './utils';
 
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -16,8 +16,8 @@ type UserFeedResponse = {
 	next?: string
 };
 
-async function getUserFeed(userId: number, next?: string) {
-	const sendMessageResult = await sendMessage<UserFeedResponse>({ type: 'get_user_feed', userId, next });
+async function getUserTagsFeed(userId: number, next?: string) {
+	const sendMessageResult = await sendMessage<UserFeedResponse>({ type: 'get_user_tags_feed', userId, next });
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -36,7 +36,7 @@ async function downloadAllPosts() {
 	const webProfileInfo = await getWebProfileInfo(username);
 
 	async function _downloadPosts($username: string, response: UserFeedResponse): Promise<unknown> {
-		const nextUserFeedResponse: Promise<UserFeedResponse> | null = typeof response.next === 'string' ? getUserFeed(webProfileInfo.userId, response.next) : null;
+		const nextUserFeedResponse: Promise<UserFeedResponse> | null = typeof response.next === 'string' ? getUserTagsFeed(webProfileInfo.userId, response.next) : null;
 
 		await pMap(response.items, async item => {
 			if (item.carousel_media) {
@@ -53,7 +53,7 @@ async function downloadAllPosts() {
 		return nextUserFeedResponse.then($response => _downloadPosts($username, $response));
 	}
 
-	const userFeed = await getUserFeed(webProfileInfo.userId);
+	const userFeed = await getUserTagsFeed(webProfileInfo.userId);
 
 	return _downloadPosts(username, userFeed);
 }
@@ -88,7 +88,7 @@ async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 export function makeDownloadButton() {
-	const downloadButton = Buttons.makeDownloadButton('profile', { className: 'user-feed', text: 'Feed' });
+	const downloadButton = Buttons.makeDownloadButton('profile', { className: 'user-tags-feed', text: 'Tagged' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();

@@ -1,15 +1,15 @@
 import type { MediaElement, PageType } from './lib/types';
 
-import * as Highlights from './lib/content/highlights';
-import * as HomeFeed from './lib/content/home-feed';
-import * as Posts from './lib/content/posts';
-import { createDownloadButtonStack } from './lib/content/profile';
-import * as Reels from './lib/content/reels';
-import * as Stories from './lib/content/stories';
-import * as UserClips from './lib/content/user-clips';
-import * as UserFeed from './lib/content/user-feed';
-import * as UserTagsFeed from './lib/content/user-tags-feed';
-import { isValidMedia } from './lib/helpers';
+import { isValidMedia } from './content/helpers';
+import * as Highlights from './content/highlights';
+import * as HomeFeed from './content/home-feed';
+import * as Posts from './content/posts';
+import { createDownloadButtonStack } from './content/profile';
+import * as Reels from './content/reels';
+import * as Stories from './content/stories';
+import * as UserClips from './content/user-clips';
+import * as UserFeed from './content/user-feed';
+import * as UserTagsFeed from './content/user-tags-feed';
 
 const PROCESSED_ATTR = 'data-ig-dl-processed';
 

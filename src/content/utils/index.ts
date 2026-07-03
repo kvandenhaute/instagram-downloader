@@ -1,6 +1,6 @@
-import type { Result } from '../types';
+import type { Result } from '../../lib/types';
 
-import { logDebug } from '../logger';
+import { logDebug } from '../../lib/logger';
 
 export function getDatetime(takenAt: number) {
 	return new Date(takenAt).toISOString();

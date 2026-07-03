@@ -1,9 +1,9 @@
-import type { Url } from '../types';
+import type { Url } from '../lib/types';
 import type { FilenameOptions } from './download';
 
-import { logDebug, logError } from '../logger';
-import { getDatetime, sendMessage } from '../utils';
+import { logDebug, logError } from '../lib/logger';
 import { downloadFile } from './download';
+import { getDatetime, sendMessage } from './utils';
 
 export type MediaItem = {
 	carousel_media?: Array<MediaCarouselItem>

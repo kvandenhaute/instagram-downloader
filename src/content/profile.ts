@@ -1,4 +1,4 @@
-import { sendMessage } from '../utils';
+import { sendMessage } from './utils';
 
 const BTN_STACK_CLASS_NAME = 'ig-dl-btn-stack';
 
