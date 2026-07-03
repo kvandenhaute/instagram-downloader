@@ -2,10 +2,31 @@ import type { PageType } from './types';
 
 export const BTN_CLASS_NAME = 'ig-dl-btn';
 
-export function makeDownloadButton(...pageTypes: [PageType, ...PageType[]]) {
+type DOWNLOAD_BUTTON_OPTIONS = {
+	className?: string | Array<string>
+	text?: string
+};
+
+export function makeDownloadButton(pageType: PageType, options: DOWNLOAD_BUTTON_OPTIONS = {}) {
 	const button = document.createElement('button');
-	button.classList.add(BTN_CLASS_NAME, ...pageTypes.map(pageType => `${BTN_CLASS_NAME}--${pageType}`));
+	button.classList.add(
+		BTN_CLASS_NAME,
+		`${BTN_CLASS_NAME}--${pageType}`,
+	);
+
+	if (Array.isArray(options.className)) {
+		button.classList.add(...options.className.map(className => `${BTN_CLASS_NAME}--${className}`));
+	} else if (typeof options.className === 'string') {
+		button.classList.add(`${BTN_CLASS_NAME}--${options.className}`);
+	}
+
 	button.appendChild(makeDownloadIcon());
+
+	if (options.text) {
+		const span = document.createElement('span');
+		span.textContent = options.text;
+		button.appendChild(span);
+	}
 
 	return button;
 }

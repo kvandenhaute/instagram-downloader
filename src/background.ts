@@ -1,4 +1,5 @@
-import type { FailureResult, Result, SuccessResult } from './types';
+
+import type { FailureResult, Result, SuccessResult } from './lib/types';
 
 const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
 const INSTAGRAM_ORIGIN = 'https://www.instagram.com';

@@ -1,12 +1,12 @@
 import type { FilenameOptions } from './download';
-import type { MediaElement, PageType } from './types';
+import type { MediaElement, PageType, Url } from './types';
 
 import { makeDownloadButton } from './buttons';
-import { download } from './download';
+import { downloadFile } from './download';
 import * as Posts from './posts';
 import { getDatetime, sendMessage } from './utils';
 
-export type Reel = { poster?: string, taken_at: number, url: string };
+export type Reel = { poster?: Url, taken_at: number, url: Url };
 
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -31,10 +31,10 @@ export async function downloadReel(reel: Reel, username: string, filenameOptions
 	const datetime = getDatetime(reel.taken_at);
 
 	if (reel.poster) {
-		await download(reel.poster, username, datetime, { ...filenameOptions, isPoster: true });
+		await downloadFile(reel.poster, username, datetime, { ...filenameOptions, isPoster: true });
 	}
 
-	return download(reel.url, username, datetime, filenameOptions);
+	return downloadFile(reel.url, username, datetime, filenameOptions);
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -58,7 +58,7 @@ export function addReelsDownloadButton(media: MediaElement, pageType: PageType) 
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void Posts.downloadFromPost(media);
+		void Posts.download(media);
 	});
 
 	root.appendChild(downloadButton);

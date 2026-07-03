@@ -1,7 +1,7 @@
 import pMap from 'p-map';
 
 import { BTN_CLASS_NAME, makeDownloadButton } from './buttons';
-import { download } from './download';
+import { downloadFile } from './download';
 import { logError } from './logger';
 import { downloadReel, type Reel } from './reels';
 import { getDatetime, sendMessage } from './utils';
@@ -61,7 +61,7 @@ async function downloadSingleHighlight(root: HTMLElement) {
 		return logError(`Could not find highlight reel at index ${index}`);
 	}
 
-	return download(reel.url, highlightReels.username, getDatetime(reel.taken_at));
+	return downloadFile(reel.url, highlightReels.username, getDatetime(reel.taken_at));
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -72,7 +72,7 @@ export function addDownloadAllHighlightsButton() {
 		return;
 	}
 
-	const downloadButton = makeDownloadButton('profile', 'highlights');
+	const downloadButton = makeDownloadButton('profile', { className: 'highlights' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();

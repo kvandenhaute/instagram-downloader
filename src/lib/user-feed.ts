@@ -4,7 +4,7 @@ import type { FilenameOptions } from './download';
 import type { MediaCarouselItem, MediaItem } from './media';
 
 import { BTN_CLASS_NAME, makeDownloadButton } from './buttons';
-import { download } from './download';
+import { downloadFile } from './download';
 import { logError } from './logger';
 import { getWebProfileInfo } from './profile';
 import { getDatetime, sendMessage } from './utils';
@@ -76,12 +76,12 @@ async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 
 		if (media.image) {
 			console.log(media.taken_at);
 
-			await download(media.image, username, datetime, { ...filenameOptions, isPoster: true });
+			await downloadFile(media.image, username, datetime, { ...filenameOptions, isPoster: true });
 		}
 
-		return download(media.video, username, datetime, filenameOptions);
+		return downloadFile(media.video, username, datetime, filenameOptions);
 	} else if (media.image) {
-		return download(media.image, username, datetime, filenameOptions);
+		return downloadFile(media.image, username, datetime, filenameOptions);
 	}
 }
 
@@ -93,7 +93,7 @@ export function addDownloadButton() {
 		return;
 	}
 
-	const downloadButton = makeDownloadButton('profile', 'highlights');
+	const downloadButton = makeDownloadButton('profile', { className: 'highlights', text: 'Feed' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();

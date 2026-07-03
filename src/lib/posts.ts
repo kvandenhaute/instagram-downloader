@@ -4,28 +4,30 @@ import { makeDownloadButton } from './buttons';
 import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from './dom';
 import { isValidMedia } from './helpers';
 import { logDebug } from './logger';
-import { downloadByShortcode } from './media';
+import * as Media from './media';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export function downloadFromPost(media: MediaElement) {
-	if (!isValidMedia(media)) {
-		return;
-	}
+export function download(media: MediaElement) {
+	// if (!isValidMedia(media)) {
+	// 	return Promise.resolve();
+	// }
 
 	const listElement = media.closest('li');
 	if (!listElement) {
-		return downloadByShortcode(media);
+		return Media.downloadOne();
 	}
 
-	return downloadFromPostCarousel(media);
+	return downloadCarouselMedia();
 }
 
-async function downloadFromPostCarousel(media: MediaElement, url?: string) {
+async function downloadCarouselMedia() {
 	const searchParams = new URL(window.location.href).searchParams;
 	const index = searchParams.get('img_index');
 
-	return downloadByShortcode(media, url, index ? parseInt(index, 10) - 1 : 0);
+	return Media.downloadOneFromCarousel(
+		index ? parseInt(index, 10) - 1 : 0,
+	);
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -43,9 +45,11 @@ export function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadFromPost(media);
+		downloadButton.disabled = true;
+
+		void download(media)
+			.finally(() => (downloadButton.disabled = false));
 	});
-	downloadButton.dataset[ 'media' ] = media.src;
 
 	return getDownloadButtonParent(root, media)
 		.appendChild(downloadButton);

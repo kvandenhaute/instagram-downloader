@@ -1,7 +1,9 @@
+import type { Url } from './types';
+
 import { logDebug } from './logger';
 
-export async function download(url: string, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
-	logDebug(makeFilename(url, username, datetime, filenameOptions));
+export async function downloadFile(url: Url, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
+	logDebug(url, filenameOptions);
 
 	return chrome.runtime.sendMessage({
 		type: 'download',
@@ -11,11 +13,12 @@ export async function download(url: string, username: string, datetime: string, 
 }
 
 export type FilenameOptions = {
+	index?: number
 	isPoster?: boolean
 	suffix?: string | Array<string>
 };
 
-function makeFilename(url: string, username: string, datetime: string, options: FilenameOptions = {}) {
+function makeFilename(url: Url, username: string, datetime: string, options: FilenameOptions = {}) {
 	const basenameParts: Array<string> = [ 'instagram', username, formatDatetimeToBasenamePart(datetime) ];
 	const ext = getFileExtension(url);
 
@@ -25,6 +28,10 @@ function makeFilename(url: string, username: string, datetime: string, options: 
 		} else {
 			basenameParts.push(options.suffix);
 		}
+	}
+
+	if (typeof options.index === 'number') {
+		basenameParts.push((options.index + 1).toString().padStart(3, '0'));
 	}
 
 	options.isPoster && basenameParts.push('poster');
@@ -39,6 +46,6 @@ function formatDatetimeToBasenamePart(datetime: string): string {
 		.replace(/\.\d+Z?$/, '');
 }
 
-function getFileExtension(url: string) {
+function getFileExtension(url: Url) {
 	return new URL(url).pathname.split('.').pop() || 'jpg';
 }

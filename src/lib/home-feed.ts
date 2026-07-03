@@ -1,14 +1,14 @@
-import type { MediaElement, PageType } from './types';
+import type { MediaElement, PageType, Url } from './types';
 
 import { makeDownloadButton } from './buttons';
 import { isValidMedia } from './helpers';
 import { logError } from './logger';
-import { downloadByShortcode } from './media';
-import { getDownloadButtonParent } from './posts';
+import * as Media from './media';
+import * as Posts from './posts';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
+async function downloadPost(media: MediaElement, root: HTMLElement) {
 	const anchor = root.querySelector<HTMLAnchorElement>('a:has(time)');
 	if (!anchor) {
 		console.warn('[ig-dl]', 'Could not find anchor');
@@ -18,13 +18,13 @@ function downloadFromHomeFeed(media: MediaElement, root: HTMLElement) {
 
 	const listElement = media.closest('li');
 	if (!listElement) {
-		return downloadByShortcode(media, anchor.href);
+		return Media.downloadOne(anchor.href as Url);
 	}
 
-	return downloadFromHomeFeedCarousel(root, media, anchor.href);
+	return downloadFromCarousel(root, media, anchor.href as Url);
 }
 
-async function downloadFromHomeFeedCarousel(root: HTMLElement, media: MediaElement, url?: string) {
+async function downloadFromCarousel(root: HTMLElement, media: MediaElement, url: Url) {
 	if (!isValidMedia(media)) {
 		return;
 	}
@@ -34,9 +34,10 @@ async function downloadFromHomeFeedCarousel(root: HTMLElement, media: MediaEleme
 		return logError('Could not find carousel step');
 	}
 
-	const index = Array.from(step.parentElement!.children).indexOf(step);
-
-	return downloadByShortcode(media, url, index);
+	return Media.downloadOneFromCarousel(
+		Array.from(step.parentElement!.children).indexOf(step),
+		url,
+	);
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -52,9 +53,12 @@ export function addDownloadFromHomeFeedButton(media: MediaElement, pageType: Pag
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadFromHomeFeed(media, root);
+		downloadButton.disabled = true;
+
+		void downloadPost(media, root)
+			.finally(() => (downloadButton.disabled = false));
 	});
 
-	return getDownloadButtonParent(root, media)
+	return Posts.getDownloadButtonParent(root, media)
 		.appendChild(downloadButton);
 }

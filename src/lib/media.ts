@@ -1,18 +1,19 @@
-import type { MediaElement } from './types';
+import type { FilenameOptions } from './download';
+import type { Url } from './types';
 
-import { download } from './download';
+import { downloadFile } from './download';
 import { logDebug, logError } from './logger';
 import { getDatetime, sendMessage } from './utils';
 
 export type MediaItem = {
 	carousel_media?: Array<MediaCarouselItem>
-	image?: string
+	image?: Url
 	taken_at: number
 	username: string
-	video?: string
+	video?: Url
 };
 
-export type MediaCarouselItem = { image?: string, taken_at: number, video?: string };
+export type MediaCarouselItem = { image?: Url, taken_at: number, video?: Url };
 
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -43,48 +44,62 @@ async function getMediaInfo(shortcode: string) {
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export async function downloadByShortcode(media: MediaElement, url?: string, index?: number) {
+export async function downloadOne(url?: Url) {
 	const shortcode = findShortcodeInUrl(url);
 	if (!shortcode) {
 		return logError('Could not find shortcode in url');
 	}
 
 	const mediaInfo = await getMediaInfo(shortcode);
-	let urls: Pick<MediaInfoResponse, 'image' | 'video'> | undefined;
 
-	if (typeof index !== 'undefined') {
-		urls = mediaInfo.carousel_media?.at(index);
-	} else {
-		urls = mediaInfo;
+	return download(mediaInfo);
+}
+
+export async function downloadOneFromCarousel(index: number, url?: Url) {
+	const shortcode = findShortcodeInUrl(url);
+	if (!shortcode) {
+		return logError('Could not find shortcode in url');
 	}
 
-	if (!urls) {
-		return logError('Could not find media item url');
+	const mediaInfo = await getMediaInfo(shortcode);
+	const carouselMedia = mediaInfo.carousel_media;
+	if (!carouselMedia) {
+		return logError(`Could not find carousel media for shortcode ${shortcode}`);
 	}
 
-	if (media instanceof HTMLImageElement) {
-		if (!urls.image) {
-			return logError('Expected to have an image URL within the mediaInfo response');
+	const mediaItem = carouselMedia.at(index);
+	if (!mediaItem) {
+		return logError(`Could not find carousel media item ${index} for shortcode ${shortcode}`);
+	}
+
+	return download({
+		...mediaItem,
+		username: mediaInfo.username,
+	}, { index });
+}
+
+async function download(media: MediaItem, filenameOptions: FilenameOptions = {}) {
+	const datetime = getDatetime(media.taken_at);
+
+	if (media.video) {
+		if (media.image) {
+			console.log(media.taken_at);
+
+			await downloadFile(media.image, media.username, datetime, { ...filenameOptions, isPoster: true });
 		}
 
-		return download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at));
-	} else if (!urls.video) {
-		return logError('Expected to have a video URL within the mediaInfo response');
+		return downloadFile(media.video, media.username, datetime, filenameOptions);
+	} else if (media.image) {
+		return downloadFile(media.image, media.username, datetime, filenameOptions);
 	}
-
-	if (urls.image) {
-		await download(urls.image, mediaInfo.username, getDatetime(mediaInfo.taken_at), { isPoster: true });
-	}
-
-	return download(urls.video, mediaInfo.username, getDatetime(mediaInfo.taken_at));
 }
 
 // SHORT CODE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
-function findShortcodeInUrl(url: string = window.location.href) {
-	const urlMatch = url.match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
+function findShortcodeInUrl(url?: Url) {
+	const urlMatch = (url || window.location.href).match(/\/(p|reel|reels)\/([A-Za-z0-9_-]+)/);
 
 	return urlMatch?.at(2) ?? null;
 }

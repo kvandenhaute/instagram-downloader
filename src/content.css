@@ -7,8 +7,30 @@
 	border: 0;
 	border-radius: 50%;
 	background-color: rgba(43, 48, 54, .5);
+	color: rgba(255, 255, 255, 0.75);
+	transition: all 0.25s;
 	cursor: pointer;
-	z-index: 1;
+	z-index: 10;
+}
+
+.ig-dl-btn svg {
+	width: 48px;
+	height: 48px;
+}
+
+.ig-dl-btn:has(span) {
+	display: inline-flex;
+	align-items: center;
+	gap: 1ex;
+	padding: 10px;
+	aspect-ratio: unset;
+	border-radius: 16px;
+	background-color: darkmagenta;
+}
+
+.ig-dl-btn:has(span) svg {
+	width: 24px;
+	height: 24px;
 }
 
 .ig-dl-btn[disabled] {
@@ -32,13 +54,21 @@
 	top: 10px;
 	left: 10px;
 	transform: none;
+	background-color: rgba(255, 255, 255, 0.75);
+	color: rgba(43, 48, 54, .5);
 }
 
-.ig-dl-btn:hover {
-	background: rgba(43, 48, 54, .85);
+.ig-dl-btn--post svg path,
+.ig-dl-btn--reels svg path {
+	stroke: rgba(0, 0, 0, .5)
 }
 
-.ig-dl-btn svg {
-	width: 48px;
-	height: 48px;
+.ig-dl-btn--post:hover,
+.ig-dl-btn--reels:hover {
+	background-color: rgb(255, 255, 255);
+}
+
+.ig-dl-btn--post:hover svg path,
+.ig-dl-btn--reels:hover svg path {
+	stroke: rgb(0, 0, 0)
 }

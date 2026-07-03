@@ -1,4 +1,4 @@
-import type { Result } from '../types';
+import type { Result } from './types';
 
 import { logDebug } from './logger';
 
