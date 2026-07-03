@@ -6,7 +6,7 @@ import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
 export const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
 export const INSTAGRAM_ORIGIN = 'https://www.instagram.com';
 
-export async function fetchApi<T>(path: `/api/v1/${string}`, body?: string): Promise<Result<T>> {
+export async function fetchApi<T>(path: `/api/v1/${string}` | `/graphql/${string}`, body?: string): Promise<Result<T>> {
 	const headers = await getAuthHeaders();
 	if (body) {
 		headers[ 'content-type' ] = 'application/x-www-form-urlencoded';
@@ -31,7 +31,7 @@ export async function fetchApi<T>(path: `/api/v1/${string}`, body?: string): Pro
 	}
 }
 
-async function getAuthHeaders() {
+export async function getAuthHeaders() {
 	const [ storage, cookie ] = await Promise.all([
 		chrome.storage.local.get('igHeaders'),
 		chrome.cookies.get({

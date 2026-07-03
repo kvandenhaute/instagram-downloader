@@ -4,12 +4,14 @@ import type { DownloadMessage } from '../messages';
 import { logDebug } from '../lib/logger';
 
 export async function downloadFile(url: Url, username: string, datetime: string, filenameOptions?: FilenameOptions): Promise<unknown> {
-	logDebug(url, filenameOptions);
+	const filename = makeFilename(url, username, datetime, filenameOptions);
+
+	logDebug(filename);
 
 	return chrome.runtime.sendMessage({
 		type: 'download',
 		url,
-		filename: makeFilename(url, username, datetime, filenameOptions),
+		filename,
 	} satisfies DownloadMessage);
 }
 
