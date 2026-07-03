@@ -4,6 +4,7 @@ import { isValidMedia } from './lib/helpers';
 import * as Highlights from './lib/highlights';
 import * as HomeFeed from './lib/home-feed';
 import * as Posts from './lib/posts';
+import { createDownloadButtonStack } from './lib/profile';
 import * as Reels from './lib/reels';
 import * as Stories from './lib/stories';
 import * as UserFeed from './lib/user-feed';
@@ -17,9 +18,15 @@ function scanPage() {
 	}
 
 	if (pageType === 'profile') {
-		// Highlights.addDownloadAllHighlightsButton();
+		const stack = createDownloadButtonStack();
+		if (!stack) {
+			return;
+		}
 
-		return UserFeed.addDownloadButton();
+		stack.appendChild(UserFeed.addDownloadButton());
+		stack.appendChild(Highlights.makeDownloadAllHighlightsButton());
+
+		return;
 	} else if (pageType === 'stories') {
 		return Stories.addStoryDownloadButton(pageType);
 	}

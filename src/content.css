@@ -84,18 +84,14 @@
 	transform: translateX(-50%);
 }
 
-
-/* TODO */
-
-.ig-dl-btn--highlights {
-	top: 80px;
-	left: 10px;
-	transform: none;
+.ig-dl-btn-stack {
+	position: absolute;
+	top: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
-.ig-dl-btn--profile.ig-dl-btn--highlights {
-	top: 0;
-	left: 0;
-	transform: none;
+.ig-dl-btn-stack .ig-dl-btn {
+	position: relative;
 }
-

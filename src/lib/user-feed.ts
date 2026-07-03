@@ -88,12 +88,7 @@ async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 export function addDownloadButton() {
-	const root = document.querySelector<HTMLElement>('section main div:has(> header)');
-	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
-		return;
-	}
-
-	const downloadButton = makeDownloadButton('profile', { className: 'highlights', text: 'Feed' });
+	const downloadButton = makeDownloadButton('profile', { className: 'user-feed', text: 'Feed' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -104,6 +99,5 @@ export function addDownloadButton() {
 			.finally(() => (downloadButton.disabled = false));
 	});
 
-	root.style.setProperty('position', 'relative');
-	root.appendChild(downloadButton);
+	return downloadButton;
 }

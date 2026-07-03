@@ -66,13 +66,8 @@ async function downloadSingleHighlight(root: HTMLElement) {
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export function addDownloadAllHighlightsButton() {
-	const root = document.querySelector<HTMLElement>('section main div:has(> header)');
-	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
-		return;
-	}
-
-	const downloadButton = makeDownloadButton('profile', { className: 'highlights' });
+export function makeDownloadAllHighlightsButton() {
+	const downloadButton = makeDownloadButton('profile', { className: 'highlights', text: 'Highlights' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -83,8 +78,7 @@ export function addDownloadAllHighlightsButton() {
 			.finally(() => (downloadButton.disabled = false));
 	});
 
-	root.style.setProperty('position', 'relative');
-	root.appendChild(downloadButton);
+	return downloadButton;
 }
 
 export function addDownloadSingleHighlightButton() {
