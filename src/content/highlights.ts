@@ -1,21 +1,27 @@
 import pMap from 'p-map';
 
+import type { ReelItem } from '../lib/types';
+import type { GetHighlightReelsMessage } from '../messages';
+
 import { logError } from '../lib/logger';
 import { downloadFile } from './download';
 import { BTN_CLASS_NAME, makeDownloadButton } from './helpers/buttons';
-import { downloadReel, type Reel } from './reels';
+import { downloadReel } from './reels';
 import { getDatetime, sendMessage } from './utils';
 
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 type HighlightReels = {
-	reels_by_pk: Record<string, Reel>
-	reels: Array<Reel>
+	reels_by_pk: Record<string, ReelItem>
+	reels: Array<ReelItem>
 	username: string
 };
 
 async function getHighlightReels(highlightId: string) {
-	const sendMessageResult = await sendMessage<HighlightReels>({ type: 'get_highlight_reels', highlightId });
+	const sendMessageResult = await sendMessage<HighlightReels>({
+		type: 'get_highlight_reels',
+		highlightId,
+	} satisfies GetHighlightReelsMessage);
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}

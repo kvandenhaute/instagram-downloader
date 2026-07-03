@@ -1,7 +1,8 @@
 import pMap from 'p-map';
 
+import type { MediaCarouselItem, MediaItem } from '../lib/types';
+import type { GetUserClipsMessage, GetUserClipsMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
-import type { MediaCarouselItem, MediaItem } from './media';
 
 import { logError } from '../lib/logger';
 import { downloadFile } from './download';
@@ -11,13 +12,12 @@ import { getDatetime, sendMessage } from './utils';
 
 // MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type UserFeedResponse = {
-	items: Array<MediaItem>
-	next?: string
-};
-
 async function getUserClips(userId: number, next?: string) {
-	const sendMessageResult = await sendMessage<UserFeedResponse>({ type: 'get_user_clips', userId, next });
+	const sendMessageResult = await sendMessage<GetUserClipsMessageResponse>({
+		type: 'get_user_clips',
+		userId,
+		next,
+	} satisfies GetUserClipsMessage);
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -35,8 +35,8 @@ async function downloadAllClips() {
 
 	const webProfileInfo = await getWebProfileInfo(username);
 
-	async function _downloadClips($username: string, response: UserFeedResponse): Promise<unknown> {
-		const nextUserClipsResponse: Promise<UserFeedResponse> | null = typeof response.next === 'string' ? getUserClips(webProfileInfo.userId, response.next) : null;
+	async function _downloadClips($username: string, response: GetUserClipsMessageResponse): Promise<unknown> {
+		const nextUserClipsResponse: Promise<GetUserClipsMessageResponse> | null = typeof response.next === 'string' ? getUserClips(webProfileInfo.userId, response.next) : null;
 
 		await pMap(response.items, async item => {
 			if (item.carousel_media) {

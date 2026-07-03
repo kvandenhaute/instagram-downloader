@@ -1,25 +1,14 @@
-import type { Url } from '../lib/types';
+import type { MediaItem, Url } from '../lib/types';
+import type { GetMediaInfoMessage, GetMediaInfoMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 
 import { logDebug, logError } from '../lib/logger';
 import { downloadFile } from './download';
 import { getDatetime, sendMessage } from './utils';
 
-export type MediaItem = {
-	carousel_media?: Array<MediaCarouselItem>
-	image?: Url
-	taken_at: number
-	username: string
-	video?: Url
-};
-
-export type MediaCarouselItem = { image?: Url, taken_at: number, video?: Url };
-
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-type MediaInfoResponse = MediaItem;
-
-const mediaInfoMap: Map<string, MediaInfoResponse> = new Map();
+const mediaInfoMap: Map<string, GetMediaInfoMessageResponse> = new Map();
 
 async function getMediaInfo(shortcode: string) {
 	const mediaInfo = mediaInfoMap.get(shortcode);
@@ -30,7 +19,10 @@ async function getMediaInfo(shortcode: string) {
 	}
 
 	const postId = mapShortcodeToPostId(shortcode);
-	const sendMessageResult = await sendMessage<MediaInfoResponse>({ type: 'get_media_info', postId });
+	const sendMessageResult = await sendMessage<GetMediaInfoMessageResponse>({
+		type: 'get_media_info',
+		postId,
+	} satisfies GetMediaInfoMessage);
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}

@@ -1,4 +1,5 @@
 import type { Url } from '../lib/types';
+import type { DownloadMessage } from '../messages';
 
 import { logDebug } from '../lib/logger';
 
@@ -9,7 +10,7 @@ export async function downloadFile(url: Url, username: string, datetime: string,
 		type: 'download',
 		url,
 		filename: makeFilename(url, username, datetime, filenameOptions),
-	});
+	} satisfies DownloadMessage);
 }
 
 export type FilenameOptions = {

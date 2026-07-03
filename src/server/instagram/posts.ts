@@ -1,15 +1,16 @@
+import type { GetMediaInfoMessageResponse } from '../../messages';
 import type { InstagramMediaItem } from './types';
 
 import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
 import { fetchApi } from './api';
-import { makeMediaItemResult } from './helpers';
+import { makeMediaItem } from './helpers';
 
-type InstagramPostResponse = {
+type PostResponse = {
 	items: Array<InstagramMediaItem>
 };
 
 export async function fetchPost(postId: string) {
-	const fetchResult = await fetchApi<InstagramPostResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
+	const fetchResult = await fetchApi<PostResponse>(`/api/v1/media/${encodeURI(postId)}/info/`);
 	if (!fetchResult.success) {
 		return fetchResult;
 	}
@@ -19,5 +20,5 @@ export async function fetchPost(postId: string) {
 		return makeErrorResult(`Unexpected empty response for postId ${postId}`);
 	}
 
-	return makeSuccessResult(makeMediaItemResult(item));
+	return makeSuccessResult(makeMediaItem(item) satisfies GetMediaInfoMessageResponse);
 }

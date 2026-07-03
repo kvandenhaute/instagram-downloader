@@ -1,13 +1,12 @@
+import type { GetWebProfileInfoMessage, GetWebProfileInfoMessageResponse } from '../messages';
+
 import { sendMessage } from './utils';
 
 const BTN_STACK_CLASS_NAME = 'ig-dl-btn-stack';
 
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-type WebProfileInfoResponse = {
-	userId: number
-};
-const webProfileInfoMap: Map<string, WebProfileInfoResponse> = new Map();
+const webProfileInfoMap: Map<string, GetWebProfileInfoMessageResponse> = new Map();
 
 export async function getWebProfileInfo(username: string) {
 	const webProfileInfo = webProfileInfoMap.get(username);
@@ -15,7 +14,10 @@ export async function getWebProfileInfo(username: string) {
 		return webProfileInfo;
 	}
 
-	const sendMessageResult = await sendMessage<WebProfileInfoResponse>({ type: 'get_web_profile_info', username });
+	const sendMessageResult = await sendMessage<GetWebProfileInfoMessageResponse>({
+		type: 'get_web_profile_info',
+		username,
+	} satisfies GetWebProfileInfoMessage);
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}

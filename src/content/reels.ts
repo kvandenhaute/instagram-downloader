@@ -1,4 +1,5 @@
-import type { MediaElement, PageType, Url } from '../lib/types';
+import type { MediaElement, PageType, ReelItem } from '../lib/types';
+import type { GetUserReelsMessage, GetUserReelsMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 
 import { downloadFile } from './download';
@@ -6,18 +7,13 @@ import { makeDownloadButton } from './helpers/buttons';
 import * as Posts from './posts';
 import { getDatetime, sendMessage } from './utils';
 
-export type Reel = { poster?: Url, taken_at: number, url: Url };
-
 // MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-type UserReelsResponse = {
-	reels_by_pk: Record<string, Reel>
-	reels: Array<Reel>
-	username: string
-};
-
 export async function getUserReels(userId: number) {
-	const sendMessageResult = await sendMessage<UserReelsResponse>({ type: 'get_user_reels', userId });
+	const sendMessageResult = await sendMessage<GetUserReelsMessageResponse>({
+		type: 'get_user_reels',
+		userId,
+	} satisfies GetUserReelsMessage);
 	if (!sendMessageResult.success) {
 		throw sendMessageResult.error;
 	}
@@ -27,7 +23,7 @@ export async function getUserReels(userId: number) {
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export async function downloadReel(reel: Reel, username: string, filenameOptions: FilenameOptions = {}) {
+export async function downloadReel(reel: ReelItem, username: string, filenameOptions: FilenameOptions = {}) {
 	const datetime = getDatetime(reel.taken_at);
 
 	if (reel.poster) {
