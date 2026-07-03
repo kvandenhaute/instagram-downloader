@@ -23,7 +23,7 @@ function scanPage() {
 			return;
 		}
 
-		stack.appendChild(UserFeed.addDownloadButton());
+		stack.appendChild(UserFeed.makeDownloadButton());
 		stack.appendChild(Highlights.makeDownloadAllHighlightsButton());
 
 		return;

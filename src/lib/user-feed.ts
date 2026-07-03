@@ -3,7 +3,7 @@ import pMap from 'p-map';
 import type { FilenameOptions } from './download';
 import type { MediaCarouselItem, MediaItem } from './media';
 
-import { BTN_CLASS_NAME, makeDownloadButton } from './buttons';
+import * as Buttons from './buttons';
 import { downloadFile } from './download';
 import { logError } from './logger';
 import { getWebProfileInfo } from './profile';
@@ -87,8 +87,8 @@ async function downloadMedia(username: string, media: Pick<MediaItem, 'image' | 
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-export function addDownloadButton() {
-	const downloadButton = makeDownloadButton('profile', { className: 'user-feed', text: 'Feed' });
+export function makeDownloadButton() {
+	const downloadButton = Buttons.makeDownloadButton('profile', { className: 'user-feed', text: 'Feed' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
