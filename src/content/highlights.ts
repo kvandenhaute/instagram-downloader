@@ -73,7 +73,7 @@ async function downloadSingleHighlight(root: HTMLElement) {
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 export function makeDownloadAllHighlightsButton() {
-	const downloadButton = makeDownloadButton('profile', { className: 'highlights', text: 'Highlights' });
+	const downloadButton = makeDownloadButton('profile', { text: 'Highlights' });
 	downloadButton.addEventListener('click', evt => {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -98,7 +98,10 @@ export function addDownloadSingleHighlightButton() {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		void downloadSingleHighlight(root);
+		downloadButton.disabled = true;
+
+		void downloadSingleHighlight(root)
+			.finally(() => (downloadButton.disabled = false));
 	});
 
 	root.appendChild(downloadButton);

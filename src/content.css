@@ -38,6 +38,7 @@
 	cursor: progress;
 }
 
+.ig-dl-btn--highlights,
 .ig-dl-btn--home-feed,
 .ig-dl-btn--post,
 .ig-dl-btn--reels {
@@ -45,12 +46,14 @@
 	color: #fff;
 }
 
+.ig-dl-btn--highlights svg path,
 .ig-dl-btn--home-feed svg path,
 .ig-dl-btn--post svg path,
 .ig-dl-btn--reels svg path {
 	stroke: #fff
 }
 
+.ig-dl-btn--highlights:hover,
 .ig-dl-btn--home-feed:hover,
 .ig-dl-btn--post:hover,
 .ig-dl-btn--reels:hover {
@@ -66,6 +69,17 @@
 .ig-dl-btn--reels {
 	top: 10px;
 	left: 10px;
+}
+
+.ig-dl-btn--highlights {
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.ig-dl-btn--highlights svg {
+	width: 48px;
+	height: 48px;
 }
 
 .ig-dl-btn--stories {
