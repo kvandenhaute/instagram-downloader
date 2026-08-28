@@ -7,7 +7,6 @@ import { fetchInstagramHighlightReels, fetchReels } from './server/reels';
 import { fetchUserClips } from './server/user-clips';
 import { fetchUserFeed } from './server/user-feed';
 import { fetchUserTagsFeed } from './server/user-tags-feed';
-import { fetchWebProfileInfo } from './server/web-profile';
 
 chrome.runtime.onMessage.addListener(
 	(message: Message, _sender, sendResponse) => {
@@ -45,11 +44,6 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_user_reels') {
 			void fetchReels(message.userId)
-				.then(result => sendResponse(result));
-
-			return true;
-		} else if (message.type === 'get_web_profile_info') {
-			void fetchWebProfileInfo(message.username)
 				.then(result => sendResponse(result));
 
 			return true;

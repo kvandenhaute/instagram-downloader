@@ -6,8 +6,7 @@ export type Message = DownloadMessage
   | GetUserClipsMessage
   | GetUserFeedMessage
   | GetUserReelsMessage
-  | GetUserTagsFeedMessage
-  | GetWebProfileInfoMessage;
+  | GetUserTagsFeedMessage;
 
 export type DownloadMessage = {
 	type: 'download'
@@ -68,11 +67,6 @@ export type GetUserReelsMessage = {
 export type GetUserReelsMessageResponse = {
 	reels_by_pk: Record<string, ReelItem>
 	reels: Array<ReelItem>
-	username: string
-};
-
-export type GetWebProfileInfoMessage = {
-	type: 'get_web_profile_info'
 	username: string
 };
 

@@ -1,10 +1,12 @@
 import type { Result } from '../../lib/types';
 import type { StoredHeaders } from '../lib/types';
 
+import { INSTAGRAM_ORIGIN } from '../../lib/constants';
 import { makeErrorResult, makeSuccessResult } from '../lib/helpers';
 
+export { INSTAGRAM_ORIGIN };
+
 export const AUTH_HEADER_NAMES = [ 'x-ig-app-id', 'x-ig-www-claim', 'x-asbd-id', 'x-instagram-ajax' ];
-export const INSTAGRAM_ORIGIN = 'https://www.instagram.com';
 
 export async function fetchApi<T>(path: `/api/v1/${string}` | `/graphql/${string}`, body?: string): Promise<Result<T>> {
 	const headers = await getAuthHeaders();
