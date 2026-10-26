@@ -22,7 +22,7 @@ export async function fetchApi<T>(path: `/api/v1/${string}` | `/graphql/${string
 			body,
 		});
 		if (!response.ok) {
-			return makeErrorResult(response.statusText);
+			return makeErrorResult(response.statusText || `HTTP ${response.status}`);
 		}
 
 		const data = await response.json() as T;

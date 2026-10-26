@@ -1,33 +1,9 @@
 import pMap from 'p-map';
 
-import type { ReelItem } from '../lib/types';
-import type { GetHighlightReelsMessage } from '../messages';
-
 import { logError } from '../lib/logger';
-import { downloadFile } from './download';
 import { BTN_CLASS_NAME, makeDownloadButton } from './helpers/buttons';
 import { downloadReel } from './reels';
-import { getDatetime, sendMessage } from './utils';
-
-// MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-type HighlightReels = {
-	reels_by_pk: Record<string, ReelItem>
-	reels: Array<ReelItem>
-	username: string
-};
-
-async function getHighlightReels(highlightId: string) {
-	const sendMessageResult = await sendMessage<HighlightReels>({
-		type: 'get_highlight_reels',
-		highlightId,
-	} satisfies GetHighlightReelsMessage);
-	if (!sendMessageResult.success) {
-		throw sendMessageResult.error;
-	}
-
-	return sendMessageResult.data;
-}
+import { fetchHighlightReels } from './reels-media';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -35,7 +11,7 @@ async function downloadAllHighlights() {
 	const highlights = await collectAllHighlights();
 
 	return pMap(highlights, async highlight => {
-		const reels = await getHighlightReels(highlight.id);
+		const reels = await fetchHighlightReels(highlight.id);
 		const title = highlight.title || highlight.id;
 
 		return pMap(reels.reels, async (reel, index) => {
@@ -61,13 +37,13 @@ async function downloadSingleHighlight(root: HTMLElement) {
 		return;
 	}
 
-	const highlightReels = await getHighlightReels(highlightId);
+	const highlightReels = await fetchHighlightReels(highlightId);
 	const reel = highlightReels.reels.at(index);
 	if (!reel) {
 		return logError(`Could not find highlight reel at index ${index}`);
 	}
 
-	return downloadFile(reel.url, highlightReels.username, getDatetime(reel.taken_at));
+	return downloadReel(reel, highlightReels.username);
 }
 
 // BUTTONS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -88,7 +64,7 @@ export function makeDownloadAllHighlightsButton() {
 }
 
 export function addDownloadSingleHighlightButton() {
-	const root = document.querySelector<HTMLElement>('section > div > div > div');
+	const root = document.querySelector<HTMLElement>('section:has([aria-label="Instagram"])');
 	if (!root || root.querySelector(`:scope > .${BTN_CLASS_NAME}`)) {
 		return;
 	}
@@ -101,6 +77,7 @@ export function addDownloadSingleHighlightButton() {
 		downloadButton.disabled = true;
 
 		void downloadSingleHighlight(root)
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

@@ -1,7 +1,8 @@
 import { logDebug, logError } from '../lib/logger';
 import { BTN_CLASS_NAME, makeDownloadButton } from './helpers/buttons';
 import { getWebProfileInfo } from './profile';
-import { downloadReel, getUserReels } from './reels';
+import { downloadReel } from './reels';
+import { fetchUserStories } from './reels-media';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -15,7 +16,7 @@ async function downloadStory() {
 	const storyId = match?.at(1);
 
 	const webProfileInfo = await getWebProfileInfo(username);
-	const reels = await getUserReels(webProfileInfo.userId);
+	const reels = await fetchUserStories(webProfileInfo.userId);
 
 	if (!storyId) {
 		const firstReel = reels.reels.at(0);
@@ -53,6 +54,7 @@ export function addStoryDownloadButton(pageType: 'stories') {
 		downloadButton.disabled = true;
 
 		void downloadStory()
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

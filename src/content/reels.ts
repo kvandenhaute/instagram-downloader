@@ -1,25 +1,10 @@
 import type { MediaElement, PageType, ReelItem } from '../lib/types';
-import type { GetUserReelsMessage, GetUserReelsMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 
 import { downloadFile } from './download';
 import { makeDownloadButton } from './helpers/buttons';
 import * as Posts from './posts';
-import { getDatetime, sendMessage } from './utils';
-
-// MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-export async function getUserReels(userId: number) {
-	const sendMessageResult = await sendMessage<GetUserReelsMessageResponse>({
-		type: 'get_user_reels',
-		userId,
-	} satisfies GetUserReelsMessage);
-	if (!sendMessageResult.success) {
-		throw sendMessageResult.error;
-	}
-
-	return sendMessageResult.data;
-}
+import { getDatetime } from './utils';
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 

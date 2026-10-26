@@ -1,5 +1,5 @@
+import type { InstagramMediaItem } from '../lib/instagram/types';
 import type { GetUserClipsMessageResponse } from '../messages';
-import type { InstagramMediaItem } from './instagram/types';
 
 import { fetchApi } from './instagram/api';
 import { makeMediaItem, makeSuccessResult } from './lib/helpers';

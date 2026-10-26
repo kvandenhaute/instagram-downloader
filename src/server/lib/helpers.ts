@@ -1,7 +1,7 @@
+import type { InstagramCarouselMediaItem, InstagramMediaItem } from '../../lib/instagram/types';
 import type { FailureResult, MediaCarouselItem, MediaItem, SuccessResult, Url } from '../../lib/types';
-import type { InstagramCarouselMediaItem, InstagramMediaItem } from '../instagram/types';
 
-import { findBestCandidate } from '../instagram/helpers';
+import { findBestCandidate } from '../../lib/instagram/helpers';
 
 export function makeErrorResult(err: unknown, prefix?: `${string}: `): FailureResult {
 	return { success: false, error: getError(err, prefix) };

@@ -1,9 +1,9 @@
+import type { Result } from './lib/types';
 import type { Message } from './messages';
 import type { StoredHeaders } from './server/lib/types';
 
 import { AUTH_HEADER_NAMES, INSTAGRAM_ORIGIN } from './server/instagram/api';
 import { fetchPost } from './server/posts';
-import { fetchInstagramHighlightReels, fetchReels } from './server/reels';
 import { fetchUserClips } from './server/user-clips';
 import { fetchUserFeed } from './server/user-feed';
 import { fetchUserTagsFeed } from './server/user-tags-feed';
@@ -19,37 +19,31 @@ chrome.runtime.onMessage.addListener(
 			return true;
 		} else if (message.type === 'get_media_info') {
 			void fetchPost(message.postId)
-				.then(result => sendResponse(result));
-
-			return true;
-		} else if (message.type === 'get_highlight_reels') {
-			void fetchInstagramHighlightReels(message.highlightId)
-				.then(result => sendResponse(result));
+				.then(result => sendResponse(serializeResult(result)));
 
 			return true;
 		} else if (message.type === 'get_user_clips') {
 			void fetchUserClips(message.userId, message.next)
-				.then(result => sendResponse(result));
+				.then(result => sendResponse(serializeResult(result)));
 
 			return true;
 		} else if (message.type === 'get_user_feed') {
 			void fetchUserFeed(message.userId, message.next)
-				.then(result => sendResponse(result));
+				.then(result => sendResponse(serializeResult(result)));
 
 			return true;
 		} else if (message.type === 'get_user_tags_feed') {
 			void fetchUserTagsFeed(message.userId, message.next)
-				.then(result => sendResponse(result));
-
-			return true;
-		} else if (message.type === 'get_user_reels') {
-			void fetchReels(message.userId)
-				.then(result => sendResponse(result));
+				.then(result => sendResponse(serializeResult(result)));
 
 			return true;
 		}
 	},
 );
+
+function serializeResult(result: Result) {
+	return result.success ? result : { success: false, error: { message: result.error.message } };
+}
 
 const GRAPHQL_QUERY_NAMES: Record<string, string> = {
 	PolarisProfileTaggedTabContentQuery: 'igTaggedQuery',

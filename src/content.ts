@@ -33,6 +33,8 @@ function scanPage() {
 		return;
 	} else if (pageType === 'stories') {
 		return Stories.addStoryDownloadButton(pageType);
+	} else if (pageType === 'highlights') {
+		return Highlights.addDownloadSingleHighlightButton();
 	}
 
 	const media = document.querySelectorAll<HTMLImageElement>('img,video');
@@ -55,9 +57,6 @@ function processMedia(media: MediaElement, pageType: PageType) {
 
 function addDownloadButton(media: MediaElement, pageType: PageType) {
 	switch (pageType) {
-		case 'highlights':
-			Highlights.addDownloadSingleHighlightButton();
-			break;
 		case 'home-feed':
 			HomeFeed.addDownloadFromHomeFeedButton(media, pageType);
 			break;

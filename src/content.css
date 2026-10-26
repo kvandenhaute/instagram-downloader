@@ -71,17 +71,7 @@
 	left: 10px;
 }
 
-.ig-dl-btn--highlights {
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-}
-
-.ig-dl-btn--highlights svg {
-	width: 48px;
-	height: 48px;
-}
-
+.ig-dl-btn--highlights,
 .ig-dl-btn--stories {
 	top: 16px;
 	left: 50%;

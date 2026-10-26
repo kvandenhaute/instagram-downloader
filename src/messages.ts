@@ -1,22 +1,15 @@
-import type { MediaItem, ReelItem } from './lib/types';
+import type { MediaItem } from './lib/types';
 
 export type Message = DownloadMessage
   | GetMediaInfoMessage
-  | GetHighlightReelsMessage
   | GetUserClipsMessage
   | GetUserFeedMessage
-  | GetUserReelsMessage
   | GetUserTagsFeedMessage;
 
 export type DownloadMessage = {
 	type: 'download'
 	url: string
 	filename: string
-};
-
-export type GetHighlightReelsMessage = {
-	type: 'get_highlight_reels'
-	highlightId: string
 };
 
 export type GetMediaInfoMessage = {
@@ -57,17 +50,6 @@ export type GetUserTagsFeedMessage = {
 export type GetUserTagsFeedMessageResponse = {
 	items: Array<MediaItem>
 	next?: string
-};
-
-export type GetUserReelsMessage = {
-	type: 'get_user_reels'
-	userId: number
-};
-
-export type GetUserReelsMessageResponse = {
-	reels_by_pk: Record<string, ReelItem>
-	reels: Array<ReelItem>
-	username: string
 };
 
 export type GetWebProfileInfoMessageResponse = {

@@ -25,3 +25,9 @@ export type ReelItem = {
 	taken_at: number
 	url: Url
 };
+
+export type ReelsMedia = {
+	reels_by_pk: Record<string, ReelItem>
+	reels: Array<ReelItem>
+	username: string
+};
