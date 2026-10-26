@@ -1,6 +1,6 @@
 import pMap from 'p-map';
 
-import type { MediaCarouselItem, MediaItem, Url } from '../lib/types';
+import type { MediaItem, Url } from '../lib/types';
 import type { GetMediaInfoMessage, GetMediaInfoMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 

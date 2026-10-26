@@ -1,7 +1,6 @@
 import type { MediaElement, PageType } from '../lib/types';
 
 import { logDebug } from '../lib/logger';
-import { isValidMedia } from './helpers';
 import { makeDownloadButton } from './helpers/buttons';
 import * as Media from './media';
 import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from './utils/dom';
