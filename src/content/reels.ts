@@ -3,6 +3,7 @@ import type { FilenameOptions } from './download';
 
 import { downloadFile } from './download';
 import { makeDownloadButton } from './helpers/buttons';
+import { downloadVideo } from './media';
 import * as Posts from './posts';
 import { getDatetime } from './utils';
 
@@ -11,8 +12,11 @@ import { getDatetime } from './utils';
 export async function downloadReel(reel: ReelItem, username: string, filenameOptions: FilenameOptions = {}) {
 	const datetime = getDatetime(reel.taken_at);
 
+	// Only videos have a poster.
 	if (reel.poster) {
 		await downloadFile(reel.poster, username, datetime, { ...filenameOptions, isPoster: true });
+
+		return downloadVideo({ dash: reel.dash, video: reel.url }, username, datetime, filenameOptions);
 	}
 
 	return downloadFile(reel.url, username, datetime, filenameOptions);

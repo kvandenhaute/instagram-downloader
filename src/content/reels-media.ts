@@ -2,7 +2,7 @@ import type { InstagramMediaItem } from '../lib/instagram/types';
 import type { ReelItem, ReelsMedia, Url } from '../lib/types';
 
 import { INSTAGRAM_ORIGIN } from '../lib/constants';
-import { findBestCandidate } from '../lib/instagram/helpers';
+import { findBestCandidate, getDashVideo } from '../lib/instagram/helpers';
 
 const STORIES_QUERY_NAME = 'PolarisStoriesV3ReelPageStandaloneQuery';
 const DEFAULT_STORIES_DOC_ID = '28449850404637481';
@@ -94,6 +94,7 @@ function processReelsMediaItem(reelsMedia: ReelsMediaItem): ReelsMedia {
 
 		if (item.media_type === 2 && item.video_versions) {
 			reel.url = findBestCandidate(item.video_versions).url as Url;
+			reel.dash = getDashVideo(item);
 			reel.poster = image;
 		}
 

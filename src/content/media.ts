@@ -1,6 +1,6 @@
 import pMap from 'p-map';
 
-import type { MediaItem, Url } from '../lib/types';
+import type { DashVideo, MediaItem, Url } from '../lib/types';
 import type { FilenameOptions } from './download';
 
 import { logDebug, logError } from '../lib/logger';
@@ -73,7 +73,7 @@ export async function downloadOne(media: MediaItem, filenameOptions: FilenameOpt
 			await downloadFile(media.image, media.username, datetime, { ...filenameOptions, isPoster: true });
 		}
 
-		return downloadVideo(media, datetime, filenameOptions);
+		return downloadVideo(media, media.username, datetime, filenameOptions);
 	} else if (media.image) {
 		return downloadFile(media.image, media.username, datetime, filenameOptions);
 	}
@@ -81,9 +81,7 @@ export async function downloadOne(media: MediaItem, filenameOptions: FilenameOpt
 
 // Prefers the larger DASH video, merged with its audio. Falls back to the
 // regular video (with audio) when merging fails.
-async function downloadVideo(media: MediaItem, datetime: string, filenameOptions: FilenameOptions) {
-	const { dash, username, video } = media;
-
+export async function downloadVideo({ dash, video }: { dash?: DashVideo, video?: Url }, username: string, datetime: string, filenameOptions: FilenameOptions = {}) {
 	if (dash?.audio) {
 		try {
 			return await downloadMergedFile(dash.video, dash.audio, username, datetime, filenameOptions);

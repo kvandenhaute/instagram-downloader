@@ -35,6 +35,7 @@ export type MediaCarouselItem = {
 };
 
 export type ReelItem = {
+	dash?: DashVideo
 	poster?: Url
 	taken_at: number
 	url: Url

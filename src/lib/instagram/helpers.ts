@@ -35,10 +35,13 @@ function getVideoUrl(item: InstagramMediaItem | InstagramCarouselMediaItem) {
 	return (item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url) as Url | undefined;
 }
 
+// The stories query has no width on video_versions.
+const VIDEO_VERSIONS_MAX_WIDTH = 720;
+
 // video_versions tops out at 720px wide; the DASH manifest often has a larger
 // version, with video and audio as separate files. Only returned when it is
 // larger than the best of video_versions.
-function getDashVideo(item: InstagramMediaItem | InstagramCarouselMediaItem): DashVideo | undefined {
+export function getDashVideo(item: InstagramMediaItem | InstagramCarouselMediaItem): DashVideo | undefined {
 	if (!item.video_dash_manifest) {
 		return;
 	}
@@ -65,7 +68,7 @@ function getDashVideo(item: InstagramMediaItem | InstagramCarouselMediaItem): Da
 
 	const video = videos.length ? findBestCandidate(videos) : undefined;
 	const best = item.video_versions ? findBestCandidate(item.video_versions) : undefined;
-	if (!video || (best && video.width <= best.width)) {
+	if (!video || (best && video.width <= (best.width || VIDEO_VERSIONS_MAX_WIDTH))) {
 		return;
 	}
 
