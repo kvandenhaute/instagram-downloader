@@ -63,6 +63,8 @@ Alles via `fetchApi` in `content/api.ts`: same-origin met de cookies van de pagi
 
 `instagram__<username>__<datetime>[__<suffix>][__<nnn>][__poster].<ext>` (`makeFilename` in `content/download.ts`). `<datetime>` komt uit `taken_at` van de API — de uploadtijd naar Instagram; de originele opnamedatum is niet beschikbaar. Bij video's wordt ook de poster gedownload (`downloadOne`, `downloadReel`).
 
+**Videoresolutie** — `video_versions` gaat maximaal tot 720px breed. `getVideoUrl` in `lib/instagram/helpers.ts` neemt daarom de grootste video uit `video_dash_manifest` (bv. 1080×1920, VP9) als die groter is. Die bevat **geen geluid**: de audio is een apart bestand in het manifest. Stories en highlights gebruiken nog `video_versions`.
+
 ### Permissies (manifest.json)
 
 | Permissie | Reden |

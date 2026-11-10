@@ -9,6 +9,7 @@ export type InstagramMediaItem = {
 	user: {
 		username: string
 	}
+	video_dash_manifest?: string | null
 	video_url?: string
 	video_versions?: Array<InstagramMediaVersion> | null
 };
@@ -19,6 +20,7 @@ export type InstagramCarouselMediaItem = {
 	}
 	pk: number
 	taken_at?: number
+	video_dash_manifest?: string | null
 	video_url?: string
 	video_versions?: Array<InstagramMediaVersion> | null
 };
