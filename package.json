@@ -12,6 +12,7 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "lint": "eslint src --fix",
+    "typecheck": "tsc --noEmit",
     "evergreen": "ncu -i -c 3d --format group",
     "postevergreen": "npm i",
     "evergreen:minor": "ncu --target minor -c 3d -u",

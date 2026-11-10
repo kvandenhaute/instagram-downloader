@@ -73,7 +73,7 @@ async function downloadAllPosts() {
 	}
 
 	async function _downloadPosts($username: string, response: ShortcodeFeedPage): Promise<unknown> {
-		const nextUserFeedResponse: Promise<ShortcodeFeedPage> | null = typeof response.next === 'string' ? getUserFeed(username, response.next) : null;
+		const nextUserFeedResponse: Promise<ShortcodeFeedPage> | null = typeof response.next === 'string' ? getUserFeed($username, response.next) : null;
 
 		await pMap(response.shortcodes, async shortcode => {
 			const item = await getMediaInfo(shortcode);

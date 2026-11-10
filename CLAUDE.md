@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build       # eenmalige build naar dist/
 npm run dev         # watch-mode build (herbouwt bij bestandswijzigingen)
 npm run lint        # ESLint over src/
+npm run typecheck   # volledige typecheck met tsc (Vite en ESLint doen die niet)
 npm run evergreen   # interactieve dependency-upgrade (max 3 dagen oud)
 ```
 
