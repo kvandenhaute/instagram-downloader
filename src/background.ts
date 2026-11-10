@@ -1,4 +1,4 @@
-import type { Message } from './messages';
+import type { Message, MuxResponse, OffscreenMessage } from './messages';
 
 import { INSTAGRAM_ORIGIN } from './lib/constants';
 
@@ -11,9 +11,63 @@ chrome.runtime.onMessage.addListener(
 			);
 
 			return true;
+		} else if (message.type === 'download_merged') {
+			void downloadMerged(message.videoUrl, message.audioUrl, message.filename)
+				.then(() => sendResponse({ success: true }))
+				.catch((err: unknown) => sendResponse({ success: false, error: err instanceof Error ? err.message : String(err) }));
+
+			return true;
 		}
 	},
 );
+
+// MERGED DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+const OFFSCREEN_URL = 'src/offscreen.html';
+
+let creatingOffscreen: Promise<void> | null = null;
+
+async function downloadMerged(videoUrl: string, audioUrl: string, filename: string) {
+	await ensureOffscreenDocument();
+
+	const response = await chrome.runtime.sendMessage<OffscreenMessage, MuxResponse>({ target: 'offscreen', type: 'mux', videoUrl, audioUrl });
+	if (!response.success) {
+		throw new Error(response.error);
+	}
+
+	const downloadId = await chrome.downloads.download({ url: response.url, filename, saveAs: false, conflictAction: 'overwrite' });
+	revokeWhenDone(downloadId, response.url);
+}
+
+async function ensureOffscreenDocument() {
+	const contexts = await chrome.runtime.getContexts({
+		contextTypes: [ chrome.runtime.ContextType.OFFSCREEN_DOCUMENT ],
+		documentUrls: [ chrome.runtime.getURL(OFFSCREEN_URL) ],
+	});
+	if (contexts.length) {
+		return;
+	}
+
+	creatingOffscreen ??= chrome.offscreen.createDocument({
+		url: OFFSCREEN_URL,
+		reasons: [ chrome.offscreen.Reason.BLOBS ],
+		justification: 'Merge the video and audio of a download into one file',
+	}).finally(() => (creatingOffscreen = null));
+
+	return creatingOffscreen;
+}
+
+function revokeWhenDone(downloadId: number, url: string) {
+	const listener = (delta: chrome.downloads.DownloadDelta) => {
+		if (delta.id !== downloadId || !delta.state || delta.state.current === 'in_progress') {
+			return;
+		}
+
+		chrome.downloads.onChanged.removeListener(listener);
+		void chrome.runtime.sendMessage<OffscreenMessage>({ target: 'offscreen', type: 'revoke', url });
+	};
+
+	chrome.downloads.onChanged.addListener(listener);
+}
 
 const GRAPHQL_QUERY_NAMES: Record<string, string> = {
 	PolarisProfileTaggedTabContentQuery: 'igTaggedQuery',

@@ -22,14 +22,15 @@
     "@eslint/js": "10.0.1",
     "@stylistic/eslint-plugin": "5.10.0",
     "@types/chrome": "0.2.0",
-    "eslint": "10.6.0",
+    "eslint": "10.14.0",
     "eslint-plugin-simple-import-sort": "13.0.0",
     "npm-check-updates": "22.2.9",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.62.0",
-    "vite": "8.1.0"
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.6"
   },
   "dependencies": {
-    "p-map": "7.0.5"
+    "mediabunny": "1.65.2",
+    "p-map": "7.1.1"
   }
 }

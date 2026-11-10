@@ -5,7 +5,7 @@ import type { FilenameOptions } from './download';
 
 import { logDebug, logError } from '../lib/logger';
 import { fetchPost } from './api';
-import { downloadFile } from './download';
+import { downloadFile, downloadMergedFile } from './download';
 import { getDatetime } from './utils';
 
 // FETCH \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -68,15 +68,37 @@ export async function downloadOneFromCarouselByShortcode(index: number, url?: Ur
 export async function downloadOne(media: MediaItem, filenameOptions: FilenameOptions = {}) {
 	const datetime = getDatetime(media.taken_at);
 
-	if (media.video) {
+	if (media.video || media.dash) {
 		if (media.image) {
 			await downloadFile(media.image, media.username, datetime, { ...filenameOptions, isPoster: true });
 		}
 
-		return downloadFile(media.video, media.username, datetime, filenameOptions);
+		return downloadVideo(media, datetime, filenameOptions);
 	} else if (media.image) {
 		return downloadFile(media.image, media.username, datetime, filenameOptions);
 	}
+}
+
+// Prefers the larger DASH video, merged with its audio. Falls back to the
+// regular video (with audio) when merging fails.
+async function downloadVideo(media: MediaItem, datetime: string, filenameOptions: FilenameOptions) {
+	const { dash, username, video } = media;
+
+	if (dash?.audio) {
+		try {
+			return await downloadMergedFile(dash.video, dash.audio, username, datetime, filenameOptions);
+		} catch (err) {
+			if (!video) {
+				throw err;
+			}
+
+			logError(err, '- falling back to the regular video');
+		}
+	} else if (dash) {
+		return downloadFile(dash.video, username, datetime, filenameOptions);
+	}
+
+	return video && downloadFile(video, username, datetime, filenameOptions);
 }
 
 export async function downloadManyFromCarousel(media: SetRequired<MediaItem, 'carousel_media'>) {

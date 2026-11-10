@@ -1,5 +1,5 @@
 import type { Url } from '../lib/types';
-import type { DownloadMessage } from '../messages';
+import type { DownloadMergedMessage, DownloadMessage } from '../messages';
 
 import { logDebug } from '../lib/logger';
 
@@ -13,6 +13,24 @@ export async function downloadFile(url: Url, username: string, datetime: string,
 		url,
 		filename,
 	} satisfies DownloadMessage);
+}
+
+// Video and audio are merged into one MP4 by the background; rejects when that
+// fails, so the caller can fall back to another file.
+export async function downloadMergedFile(videoUrl: Url, audioUrl: Url, username: string, datetime: string, filenameOptions?: FilenameOptions) {
+	const filename = makeFilename(videoUrl, username, datetime, filenameOptions);
+
+	logDebug(filename, '(merged)');
+
+	const response = await chrome.runtime.sendMessage<DownloadMergedMessage, { success: boolean, error?: string }>({
+		type: 'download_merged',
+		audioUrl,
+		filename,
+		videoUrl,
+	});
+	if (!response.success) {
+		throw new Error(`Merge failed: ${response.error ?? 'unknown error'}`);
+	}
 }
 
 export type FilenameOptions = {

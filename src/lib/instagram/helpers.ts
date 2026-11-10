@@ -1,4 +1,4 @@
-import type { MediaCarouselItem, MediaItem, Url } from '../types';
+import type { DashVideo, MediaCarouselItem, MediaItem, Url } from '../types';
 import type { InstagramCarouselMediaItem, InstagramMediaItem, InstagramMediaVersion } from './types';
 
 export function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
@@ -8,6 +8,7 @@ export function findBestCandidate(candidates: Array<InstagramMediaVersion>) {
 export function makeMediaItem(item: InstagramMediaItem) {
 	return {
 		carousel_media: item.carousel_media?.map(media => makeMediaCarouselItem(media, item.taken_at)),
+		dash: getDashVideo(item),
 		image: getImageUrl(item),
 		taken_at: item.taken_at * 1000,
 		username: item.user.username,
@@ -19,6 +20,7 @@ export function makeMediaItem(item: InstagramMediaItem) {
 // post's own.
 function makeMediaCarouselItem(item: InstagramCarouselMediaItem, parentTakenAt: number) {
 	return {
+		dash: getDashVideo(item),
 		image: getImageUrl(item),
 		taken_at: (item.taken_at ?? parentTakenAt) * 1000,
 		video: getVideoUrl(item),
@@ -29,28 +31,45 @@ function getImageUrl(item: InstagramMediaItem | InstagramCarouselMediaItem) {
 	return item.image_versions2 && findBestCandidate(item.image_versions2.candidates).url as Url | undefined;
 }
 
-// video_versions tops out at 720px wide; the DASH manifest often has a larger
-// version. That one is video only, the audio is a separate file.
 function getVideoUrl(item: InstagramMediaItem | InstagramCarouselMediaItem) {
-	const best = item.video_versions ? findBestCandidate(item.video_versions) : undefined;
-	const dash = item.video_dash_manifest ? findBestDashVideo(item.video_dash_manifest) : undefined;
-	if (dash && (!best || dash.width > best.width)) {
-		return dash.url as Url;
-	}
-
-	return (best?.url ?? item.video_url) as Url | undefined;
+	return (item.video_versions ? findBestCandidate(item.video_versions).url : item.video_url) as Url | undefined;
 }
 
-function findBestDashVideo(manifest: string): InstagramMediaVersion | undefined {
-	const doc = new DOMParser().parseFromString(manifest, 'application/xml');
-	const versions = [ ...doc.querySelectorAll('Representation') ].flatMap(representation => {
+// video_versions tops out at 720px wide; the DASH manifest often has a larger
+// version, with video and audio as separate files. Only returned when it is
+// larger than the best of video_versions.
+function getDashVideo(item: InstagramMediaItem | InstagramCarouselMediaItem): DashVideo | undefined {
+	if (!item.video_dash_manifest) {
+		return;
+	}
+
+	const doc = new DOMParser().parseFromString(item.video_dash_manifest, 'application/xml');
+	const videos: Array<InstagramMediaVersion> = [];
+	const audios: Array<{ bandwidth: number, url: string }> = [];
+
+	for (const representation of doc.querySelectorAll('Representation')) {
 		const mimeType = representation.getAttribute('mimeType') ?? representation.parentElement?.getAttribute('mimeType');
 		const url = representation.querySelector('BaseURL')?.textContent;
-		const width = Number(representation.getAttribute('width'));
-		const height = Number(representation.getAttribute('height'));
+		if (!url) {
+			continue;
+		}
 
-		return mimeType?.startsWith('video/') && url && width ? [ { url, width, height } ] : [];
-	});
+		if (mimeType?.startsWith('video/')) {
+			const width = Number(representation.getAttribute('width'));
+			const height = Number(representation.getAttribute('height'));
+			width && videos.push({ url, width, height });
+		} else if (mimeType?.startsWith('audio/')) {
+			audios.push({ url, bandwidth: Number(representation.getAttribute('bandwidth')) });
+		}
+	}
 
-	return versions.length ? findBestCandidate(versions) : undefined;
+	const video = videos.length ? findBestCandidate(videos) : undefined;
+	const best = item.video_versions ? findBestCandidate(item.video_versions) : undefined;
+	if (!video || (best && video.width <= best.width)) {
+		return;
+	}
+
+	const audio = audios.sort((a, b) => b.bandwidth - a.bandwidth).at(0);
+
+	return { audio: audio?.url as Url | undefined, video: video.url as Url };
 }

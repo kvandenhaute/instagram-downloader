@@ -2,8 +2,15 @@ export type MediaElement = HTMLImageElement | HTMLVideoElement;
 export type PageType = 'highlights' | 'home-feed' | 'post' | 'profile' | 'reels' | 'reel' | 'stories';
 export type Url = `https://${string}`;
 
+// A larger video from the DASH manifest, with its audio as a separate file.
+export type DashVideo = {
+	audio?: Url
+	video: Url
+};
+
 export type MediaItem = {
 	carousel_media?: Array<MediaCarouselItem>
+	dash?: DashVideo
 	image?: Url
 	taken_at: number
 	username: string
@@ -21,6 +28,7 @@ export type ShortcodeFeedPage = {
 };
 
 export type MediaCarouselItem = {
+	dash?: DashVideo
 	image?: Url
 	taken_at: number
 	video?: Url

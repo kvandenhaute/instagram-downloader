@@ -22,7 +22,8 @@ Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin
 | `src/content.ts` | Content script (entry) | Bepaalt het paginatype, scant de DOM en injecteert downloadknoppen |
 | `src/content/` | Content script | Eén module per paginatype (`posts`, `reels`, `home-feed`, `stories`, `highlights`, `user-feed`, `user-clips`, `user-tags-feed`, `profile`) plus `api.ts` (`fetchApi`, `fetchPost`, `findFbDtsg`), `download.ts` (bestandsnaam + `download`-bericht), `media.ts` (media-info per shortcode, gecachet) en `reels-media.ts` (GraphQL-fetch voor stories/highlights) |
 | `src/content.css` | Content script CSS | Stijlen voor de downloadknoppen — automatisch geïnjecteerd via manifest |
-| `src/background.ts` | Service worker | Vangt de parameters van de Tagged-query op en voert downloads uit |
+| `src/background.ts` | Service worker | Vangt de parameters van de Tagged-query op, voert downloads uit en beheert het offscreen-document |
+| `src/offscreen.html` + `src/offscreen.ts` | Offscreen-document | Voegt DASH-video en -audio samen tot één MP4 (Mediabunny) en maakt er een blob-URL van |
 | `src/lib/` | Gedeeld | Types, logger, constanten en Instagram-types/-helpers (`lib/instagram/`) |
 
 ### Communicatiekanaal
@@ -31,7 +32,11 @@ Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin
 content script  →─ chrome.runtime.sendMessage ──→  background.ts
 ```
 
-Het enige bericht (zie `src/messages.ts`) is `download`, dat `chrome.downloads.download()` triggert. Alle API-verzoeken draaien in de content script.
+Berichten (zie `src/messages.ts`):
+- `download` — triggert `chrome.downloads.download()`
+- `download_merged` — de background opent zo nodig het offscreen-document, laat het video en audio samenvoegen (`mux`), downloadt de blob-URL en ruimt die na de download op (`revoke`)
+
+Alle API-verzoeken draaien in de content script.
 
 ### Hoe media-URL's worden opgehaald
 
@@ -63,15 +68,18 @@ Alles via `fetchApi` in `content/api.ts`: same-origin met de cookies van de pagi
 
 `instagram__<username>__<datetime>[__<suffix>][__<nnn>][__poster].<ext>` (`makeFilename` in `content/download.ts`). `<datetime>` komt uit `taken_at` van de API — de uploadtijd naar Instagram; de originele opnamedatum is niet beschikbaar. Bij video's wordt ook de poster gedownload (`downloadOne`, `downloadReel`).
 
-**Videoresolutie** — `video_versions` gaat maximaal tot 720px breed. `getVideoUrl` in `lib/instagram/helpers.ts` neemt daarom de grootste video uit `video_dash_manifest` (bv. 1080×1920, VP9) als die groter is. Die bevat **geen geluid**: de audio is een apart bestand in het manifest. Stories en highlights gebruiken nog `video_versions`.
+**Videoresolutie** — `video_versions` gaat maximaal tot 720px breed. `getDashVideo` in `lib/instagram/helpers.ts` haalt de grootste video (bv. 1080×1920, VP9) en de beste audio uit `video_dash_manifest` als die video groter is (`MediaItem.dash`). `downloadVideo` in `content/media.ts` laat die twee samenvoegen; mislukt dat, dan wordt de gewone video met geluid gedownload. Samenvoegen is remuxen zonder hercoderen: de pakketten worden met Mediabunny naar een nieuwe MP4 gekopieerd. De service worker kan geen blob-URL's maken, daarom gebeurt het in een offscreen-document. Stories en highlights gebruiken nog `video_versions`.
 
 ### Permissies (manifest.json)
 
 | Permissie | Reden |
 |---|---|
 | `downloads` | `chrome.downloads.download()` |
+| `offscreen` | Offscreen-document voor het samenvoegen van video en audio |
 | `webRequest` | Parameters van de Tagged-query uit Instagrams eigen verzoek lezen |
 | `storage` | Die parameters bewaren tot de Tagged-knop gebruikt wordt |
+
+Host-permissies: `www.instagram.com` voor de content script, `*.cdninstagram.com` en `*.fbcdn.net` zodat het offscreen-document de mediabestanden kan ophalen zonder CORS-beperking.
 
 ## ESLint
 

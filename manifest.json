@@ -3,8 +3,8 @@
   "name": "Instagram Downloader",
   "version": "0.0.1",
   "description": "Download Instagram photos, reels and videos with the post datetime in the filename.",
-  "permissions": ["downloads", "webRequest", "storage"],
-  "host_permissions": ["https://www.instagram.com/*"],
+  "permissions": ["downloads", "offscreen", "webRequest", "storage"],
+  "host_permissions": ["https://www.instagram.com/*", "https://*.cdninstagram.com/*", "https://*.fbcdn.net/*"],
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*"],
