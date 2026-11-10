@@ -57,6 +57,7 @@ export function makeDownloadAllHighlightsButton() {
 		downloadButton.disabled = true;
 
 		void downloadAllHighlights()
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

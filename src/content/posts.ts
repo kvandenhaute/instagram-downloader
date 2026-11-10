@@ -1,6 +1,6 @@
 import type { MediaElement, PageType } from '../lib/types';
 
-import { logDebug } from '../lib/logger';
+import { logDebug, logError } from '../lib/logger';
 import { makeDownloadButton } from './helpers/buttons';
 import * as Media from './media';
 import { findFirstRelativeAncestor, findFirstRelativeDescendant, queryFirst } from './utils/dom';
@@ -53,6 +53,7 @@ export function addPostDownloadButton(media: MediaElement, pageType: PageType) {
 		downloadButton.disabled = true;
 
 		void download(media)
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

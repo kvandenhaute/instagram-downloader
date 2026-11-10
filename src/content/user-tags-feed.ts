@@ -1,26 +1,72 @@
 import pMap from 'p-map';
 
-import type { GetUserTagsFeedMessage, GetUserTagsFeedMessageResponse } from '../messages';
+import type { MediaFeedPage } from '../lib/types';
 
 import { logError } from '../lib/logger';
+import { fetchApi } from './api';
 import * as Buttons from './helpers/buttons';
-import { downloadManyFromCarousel, downloadOne, hasCarousel } from './media';
+import { downloadManyFromCarousel, downloadOne, getMediaInfo, hasCarousel, mapPostIdToShortcode } from './media';
 import { getWebProfileInfo } from './profile';
-import { sendMessage } from './utils';
 
-// MESSAGES ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// FETCH \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-async function getUserTagsFeed(userId: number, next?: string) {
-	const sendMessageResult = await sendMessage<GetUserTagsFeedMessageResponse>({
-		type: 'get_user_tags_feed',
-		userId,
-		next,
-	} satisfies GetUserTagsFeedMessage);
-	if (!sendMessageResult.success) {
-		throw sendMessageResult.error;
+type StoredTaggedQuery = {
+	docId: string
+	fbDtsg: string
+	lsd: string
+	av?: string
+};
+
+type UserTagsFeedResponse = {
+	data: {
+		xdt_api__v1__usertags__user_id__feed_connection: {
+			edges: Array<{ node: { pk: string } }>
+			page_info: {
+				end_cursor: string
+				has_next_page: boolean
+			}
+		}
+	}
+};
+
+// doc_id, fb_dtsg and lsd are captured by the background from Instagram's own
+// request, so the Tagged tab has to be opened first.
+async function getUserTagsFeed(userId: number, next?: string): Promise<MediaFeedPage> {
+	const storage = await chrome.storage.local.get('igTaggedQuery');
+	const query = storage[ 'igTaggedQuery' ] as StoredTaggedQuery | undefined;
+	if (!query) {
+		throw new Error('No tagged query found, open the Tagged tab of a profile first');
 	}
 
-	return sendMessageResult.data;
+	const body = new URLSearchParams({
+		doc_id: query.docId,
+		fb_dtsg: query.fbDtsg,
+		lsd: query.lsd,
+		variables: JSON.stringify({ count: 12, user_id: String(userId), ...(next ? { after: next } : {}) }),
+		server_timestamps: 'true',
+		__a: '1',
+	});
+
+	if (query.av) {
+		body.set('av', query.av);
+	}
+
+	const data = await fetchApi<UserTagsFeedResponse>('/graphql/query', body);
+	const feed = data.data.xdt_api__v1__usertags__user_id__feed_connection;
+	const items = await pMap(
+		feed.edges,
+		edge => getMediaInfo(mapPostIdToShortcode(edge.node.pk)).catch((err: unknown) => {
+			logError(`Could not fetch tagged post ${edge.node.pk}`, err);
+
+			return null;
+		}),
+		{ concurrency: 5 },
+	);
+
+	return {
+		items: items.filter(item => item !== null),
+		next: feed.page_info.has_next_page ? feed.page_info.end_cursor : undefined,
+	};
 }
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -33,8 +79,8 @@ async function downloadAllPosts() {
 
 	const webProfileInfo = await getWebProfileInfo(username);
 
-	async function _downloadPosts($username: string, response: GetUserTagsFeedMessageResponse): Promise<unknown> {
-		const nextUserFeedResponse: Promise<GetUserTagsFeedMessageResponse> | null = typeof response.next === 'string' ? getUserTagsFeed(webProfileInfo.userId, response.next) : null;
+	async function _downloadPosts($username: string, response: MediaFeedPage): Promise<unknown> {
+		const nextUserFeedResponse: Promise<MediaFeedPage> | null = typeof response.next === 'string' ? getUserTagsFeed(webProfileInfo.userId, response.next) : null;
 
 		await pMap(response.items, async item => {
 			if (hasCarousel(item)) {
@@ -67,6 +113,7 @@ export function makeDownloadButton() {
 		downloadButton.disabled = true;
 
 		void downloadAllPosts()
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

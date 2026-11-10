@@ -1,18 +1,18 @@
 import pMap from 'p-map';
 
 import type { MediaItem, Url } from '../lib/types';
-import type { GetMediaInfoMessage, GetMediaInfoMessageResponse } from '../messages';
 import type { FilenameOptions } from './download';
 
 import { logDebug, logError } from '../lib/logger';
+import { fetchPost } from './api';
 import { downloadFile } from './download';
-import { getDatetime, sendMessage } from './utils';
+import { getDatetime } from './utils';
 
-// MESSAGE \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+// FETCH \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-const mediaInfoMap: Map<string, GetMediaInfoMessageResponse> = new Map();
+const mediaInfoMap: Map<string, MediaItem> = new Map();
 
-async function getMediaInfo(shortcode: string) {
+export async function getMediaInfo(shortcode: string) {
 	const mediaInfo = mediaInfoMap.get(shortcode);
 	if (mediaInfo) {
 		logDebug('MediaInfo', mediaInfo);
@@ -20,20 +20,13 @@ async function getMediaInfo(shortcode: string) {
 		return mediaInfo;
 	}
 
-	const postId = mapShortcodeToPostId(shortcode);
-	const sendMessageResult = await sendMessage<GetMediaInfoMessageResponse>({
-		type: 'get_media_info',
-		postId,
-	} satisfies GetMediaInfoMessage);
-	if (!sendMessageResult.success) {
-		throw sendMessageResult.error;
-	}
+	const mediaItem = await fetchPost(shortcode);
 
-	logDebug('MediaInfo', sendMessageResult.data);
+	logDebug('MediaInfo', mediaItem);
 
-	mediaInfoMap.set(shortcode, sendMessageResult.data);
+	mediaInfoMap.set(shortcode, mediaItem);
 
-	return sendMessageResult.data;
+	return mediaItem;
 }
 
 // DOWNLOAD \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -105,15 +98,16 @@ function findShortcodeInUrl(url?: Url) {
 	return urlMatch?.at(2) ?? null;
 }
 
-function mapShortcodeToPostId(shortcode: string) {
-	const code = shortcode.length > 28 ? shortcode.slice(0, shortcode.length - 28) : shortcode;
-	let id = BigInt(0);
+export function mapPostIdToShortcode(postId: string) {
+	let id = BigInt(postId);
+	let shortcode = '';
 
-	for (const ch of code) {
-		id = id * BigInt(64) + BigInt(CHARS.indexOf(ch));
+	while (id > BigInt(0)) {
+		shortcode = CHARS.charAt(Number(id % BigInt(64))) + shortcode;
+		id /= BigInt(64);
 	}
 
-	return id.toString();
+	return shortcode;
 }
 
 // HELPERS \\\\

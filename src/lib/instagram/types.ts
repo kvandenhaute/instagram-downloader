@@ -1,5 +1,6 @@
 export type InstagramMediaItem = {
 	carousel_media?: Array<InstagramCarouselMediaItem>
+	code: string
 	image_versions2?: {
 		candidates: Array<InstagramMediaVersion>
 	}
@@ -9,7 +10,7 @@ export type InstagramMediaItem = {
 		username: string
 	}
 	video_url?: string
-	video_versions?: Array<InstagramMediaVersion>
+	video_versions?: Array<InstagramMediaVersion> | null
 };
 
 export type InstagramCarouselMediaItem = {
@@ -17,9 +18,9 @@ export type InstagramCarouselMediaItem = {
 		candidates: Array<InstagramMediaVersion>
 	}
 	pk: number
-	taken_at: number
+	taken_at?: number
 	video_url?: string
-	video_versions?: Array<InstagramMediaVersion>
+	video_versions?: Array<InstagramMediaVersion> | null
 };
 
 export type InstagramMediaVersion = {

@@ -56,6 +56,7 @@ export function addDownloadFromHomeFeedButton(media: MediaElement, pageType: Pag
 		downloadButton.disabled = true;
 
 		void downloadPost(media, root)
+			.catch(logError)
 			.finally(() => (downloadButton.disabled = false));
 	});
 

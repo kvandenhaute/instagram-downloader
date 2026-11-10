@@ -1,4 +1,3 @@
-import type { GetWebProfileInfoMessageResponse } from '../messages';
 
 import { INSTAGRAM_ORIGIN } from '../lib/constants';
 
@@ -6,7 +5,11 @@ const BTN_STACK_CLASS_NAME = 'ig-dl-btn-stack';
 
 // PROFILE INFO \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
-const webProfileInfoMap: Map<string, GetWebProfileInfoMessageResponse> = new Map();
+type WebProfileInfo = {
+	userId: number
+};
+
+const webProfileInfoMap: Map<string, WebProfileInfo> = new Map();
 
 // Instagram's /api/v1/users/web_profile_info/ endpoint is broken server-side, so
 // we scrape the numeric user id straight from the profile page HTML instead. The
@@ -31,7 +34,7 @@ export async function getWebProfileInfo(username: string) {
 		throw new Error(`Could not find user id for ${username}`);
 	}
 
-	const webProfileInfo = { userId: Number(match[ 1 ]) } satisfies GetWebProfileInfoMessageResponse;
+	const webProfileInfo = { userId: Number(match[ 1 ]) } satisfies WebProfileInfo;
 	webProfileInfoMap.set(username, webProfileInfo);
 
 	return webProfileInfo;

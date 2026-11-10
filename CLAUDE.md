@@ -20,13 +20,10 @@ Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin
 | Pad | Context | Doel |
 |---|---|---|
 | `src/content.ts` | Content script (entry) | Bepaalt het paginatype, scant de DOM en injecteert downloadknoppen |
-| `src/content/` | Content script | Eén module per paginatype (`posts`, `reels`, `home-feed`, `stories`, `highlights`, `user-feed`, `user-clips`, `user-tags-feed`, `profile`) plus `download.ts` (bestandsnaam + `download`-bericht) en `reels-media.ts` (GraphQL-fetch voor stories/highlights) |
+| `src/content/` | Content script | Eén module per paginatype (`posts`, `reels`, `home-feed`, `stories`, `highlights`, `user-feed`, `user-clips`, `user-tags-feed`, `profile`) plus `api.ts` (`fetchApi`, `fetchPost`, `findFbDtsg`), `download.ts` (bestandsnaam + `download`-bericht), `media.ts` (media-info per shortcode, gecachet) en `reels-media.ts` (GraphQL-fetch voor stories/highlights) |
 | `src/content.css` | Content script CSS | Stijlen voor de downloadknoppen — automatisch geïnjecteerd via manifest |
-| `src/background.ts` | Service worker | Onderschept auth-headers en GraphQL-parameters, beantwoordt berichten, voert downloads uit |
-| `src/server/` | Service worker | API-aanroepen via `fetchApi` (`server/instagram/api.ts`) |
+| `src/background.ts` | Service worker | Vangt de parameters van de Tagged-query op en voert downloads uit |
 | `src/lib/` | Gedeeld | Types, logger, constanten en Instagram-types/-helpers (`lib/instagram/`) |
-
-`src/content/` importeert niets uit `src/server/`; gedeelde code staat in `src/lib/`.
 
 ### Communicatiekanaal
 
@@ -34,28 +31,21 @@ Chrome-extensie (Manifest V3) gebouwd met Vite + `@crxjs/vite-plugin`. De plugin
 content script  →─ chrome.runtime.sendMessage ──→  background.ts
 ```
 
-Berichttypen (zie `src/messages.ts`):
-- `get_media_info` — media-URL's en gebruikersnaam van één post
-- `get_user_feed`, `get_user_clips`, `get_user_tags_feed` — gepagineerde feeds van een profiel
-- `download` — triggert `chrome.downloads.download()`
-
-Antwoorden zijn een `Result` (`{ success, data }` of `{ success: false, error }`). `Error`-objecten overleven messaging niet, dus `serializeResult()` in `background.ts` stuurt alleen `{ message }` mee en `sendMessage()` in `content/utils` maakt er weer een `Error` van.
+Het enige bericht (zie `src/messages.ts`) is `download`, dat `chrome.downloads.download()` triggert. Alle API-verzoeken draaien in de content script.
 
 ### Hoe media-URL's worden opgehaald
 
-**Via de background (REST + auth-headers)** — posts, profielfeed, clips:
+Alles via `fetchApi` in `content/api.ts`: same-origin met de cookies van de pagina, `x-csrftoken` uit `document.cookie` en `x-ig-app-id` (`INSTAGRAM_WEB_APP_ID`). De REST-endpoints van `/api/v1/` zijn grotendeels onbruikbaar (404, HTML, 500, of media tot 1080px), dus bijna alles gaat via `POST /graphql/query` met dezelfde queries als de webapp. Die vereisen `fb_dtsg` in de body (uit de `<script type="application/json">`-tags van de pagina, `findFbDtsg`) en de header `x-fb-friendly-name`. De `doc_id`'s staan als constanten in de code; Instagram roteert ze af en toe, dan stopt de betreffende knop met werken.
 
-1. **Header-interceptie** — `background.ts` luistert via `chrome.webRequest.onBeforeSendHeaders` op XHR-verzoeken van Instagram en slaat auth-headers op in `chrome.storage.local`: `x-ig-app-id`, `x-ig-www-claim`, `x-asbd-id`, `x-instagram-ajax`
-2. **Authenticatie** — `fetchApi` combineert die headers met de `csrftoken` cookie (via `chrome.cookies.get`) en `credentials: 'include'`
-3. **Endpoints** — `GET /api/v1/media/{postId}/info/`, `GET /api/v1/feed/user/{userId}`, `POST /api/v1/clips/user/`
-4. **Tagged feed** — GraphQL (`PolarisProfileTaggedTabContentQuery`); `doc_id`, `fb_dtsg` en `lsd` worden via `onBeforeRequest` uit Instagrams eigen verzoeken gehaald, dus de gebruiker moet eerst het Tagged-tabblad openen
+- **Post** (`fetchPost` in `content/api.ts`) — `PolarisPostRootQuery` met `shortcode`. Geeft consequent de volle resolutie (bv. 3072×4096); `/api/v1/media/{postId}/info/` gaf soms alleen 1080px. `doc_id` en relay-variabelen komen uit de pagina, anders `DEFAULT_POST_DOC_ID` / `DEFAULT_POST_VARIABLES`. Carrousel-items hebben hier geen `taken_at`, daarom valt `makeMediaItem` terug op dat van de post.
+- **Feed** (`content/user-feed.ts`) — `PolarisProfilePostsTabContentQuery_connection` (`FEED_DOC_ID`) op `username`; `after` voor de volgende pagina. Het antwoord bevat meestal een `field_exception` op `location.profile_pic_url` (ook bij Instagram zelf), dus `errors` tellen alleen als er geen data is.
+- **Clips** (`content/user-clips.ts`) — `PolarisProfileReelsTabContentQuery_connection` (`CLIPS_DOC_ID`) op user-id; `after` voor de volgende pagina.
+- **Tagged** (`content/user-tags-feed.ts`) — `PolarisProfileTaggedTabContentQuery`. `doc_id`, `fb_dtsg` en `lsd` vangt `background.ts` via `chrome.webRequest.onBeforeRequest` op uit Instagrams eigen verzoek en bewaart ze in `chrome.storage.local`, dus de gebruiker moet eerst het Tagged-tabblad openen.
+- Feed, Clips en Tagged leveren alleen shortcodes; per post wordt daarna `getMediaInfo` (= `fetchPost`) aangeroepen.
+- **Stories en highlights** (`content/reels-media.ts`) — `PolarisStoriesV3ReelPageStandaloneQuery` met `reel_ids_arr: [ "<userId>" ]` of `[ "highlight:<id>" ]`. `doc_id` uit de pagina, anders `DEFAULT_STORIES_DOC_ID`.
+- **User-id** (`content/profile.ts`) — `/api/v1/users/web_profile_info/` is stuk; het id wordt uit de HTML van de profielpagina geschraapt (`"profilePage_<id>"`).
 
-**Via de content script (same-origin)** — stories, highlights en user-id:
-
-- **Stories en highlights** (`content/reels-media.ts`) — `/api/v1/feed/reels_media/` geeft server-side altijd een 500. In plaats daarvan: `POST /graphql/query` met de query `PolarisStoriesV3ReelPageStandaloneQuery` en `reel_ids_arr: [ "<userId>" ]` of `[ "highlight:<id>" ]`. Vereist `fb_dtsg` in de body en de header `x-fb-friendly-name`. `fb_dtsg` en de `doc_id` komen uit de `<script type="application/json">`-tags van de pagina; ontbreekt de `doc_id` (bv. na SPA-navigatie), dan wordt `DEFAULT_STORIES_DOC_ID` gebruikt — Instagram roteert die af en toe. Vanuit de service worker geeft deze query HTML terug in plaats van JSON, daarom draait hij in de content script.
-- **User-id** (`content/profile.ts`) — `/api/v1/users/web_profile_info/` is ook stuk; het id wordt uit de HTML van de profielpagina geschraapt (`"profilePage_<id>"`).
-
-**Shortcode → postId** — shortcodes worden gedecodeerd via een base64-variant met alfabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` (`mapShortcodeToPostId` in `content/media.ts`). `findShortcodeInUrl()` haalt de shortcode uit een URL met `/p/`, `/reel/` of `/reels/`.
+**PostId → shortcode** — pk's worden omgezet via een base64-variant met alfabet `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_` (`mapPostIdToShortcode` in `content/media.ts`; nodig voor Tagged). `findShortcodeInUrl()` haalt de shortcode uit een URL met `/p/`, `/reel/` of `/reels/`.
 
 ### Knoppen per paginatype
 
@@ -78,9 +68,8 @@ Antwoorden zijn een `Result` (`{ success, data }` of `{ success: false, error }`
 | Permissie | Reden |
 |---|---|
 | `downloads` | `chrome.downloads.download()` |
-| `webRequest` + `extraHeaders` | Auth-headers en GraphQL-parameters uit Instagram-verzoeken lezen |
-| `cookies` | `csrftoken` ophalen voor API-authenticatie |
-| `storage` | Opgeslagen auth-headers en GraphQL-parameters bewaren tussen verzoeken |
+| `webRequest` | Parameters van de Tagged-query uit Instagrams eigen verzoek lezen |
+| `storage` | Die parameters bewaren tot de Tagged-knop gebruikt wordt |
 
 ## ESLint
 
